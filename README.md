@@ -16,6 +16,9 @@ Repository of Adobe skills for AI coding agents.
 # Install AEM as a Cloud Service Dispatcher plugin
 /plugin install aem-cloud-service-dispatcher@adobe-skills
 
+# Install AEM as a Cloud Service Create Component plugin
+/plugin install aem-cloud-service-create-component@adobe-skills
+
 # Install AEM 6.5 LTS Dispatcher plugin
 /plugin install aem-6-5-lts-dispatcher@adobe-skills
 ```
@@ -28,6 +31,9 @@ npx skills add https://github.com/adobe/skills/tree/main/skills/aem/edge-deliver
 
 # Install all AEM as a Cloud Service Dispatcher skills
 npx skills add https://github.com/adobe/skills/tree/main/skills/aem/cloud-service/skills/dispatcher --all
+
+# Install AEM as a Cloud Service Create Component skill
+npx skills add https://github.com/adobe/skills/tree/main/skills/aem/cloud-service/skills/create-component --all
 
 # Install all AEM 6.5 LTS Dispatcher skills
 npx skills add https://github.com/adobe/skills/tree/main/skills/aem/6.5-lts/skills/dispatcher --all
@@ -72,6 +78,9 @@ gh upskill adobe/skills --path skills/aem/edge-delivery-services --all
 # Install only AEM as a Cloud Service Dispatcher skills
 gh upskill adobe/skills --path skills/aem/cloud-service/skills/dispatcher --all
 
+# Install AEM as a Cloud Service Create Component skill
+gh upskill adobe/skills --path skills/aem/cloud-service/skills/create-component --all
+
 # Install only AEM 6.5 LTS Dispatcher skills
 gh upskill adobe/skills --path skills/aem/6.5-lts/skills/dispatcher --all
 
@@ -96,6 +105,18 @@ This package provides three capability areas:
 - Migration and import workflow skills
 
 See `skills/aem/edge-delivery-services/skills/` for the current concrete skill set.
+
+### AEM as a Cloud Service — Create Component
+
+The `create-component` skill creates complete AEM components following Adobe best practices for AEM Cloud Service and AEM 6.5. It covers:
+
+- Component definition, dialog XML, and HTL template
+- Sling Model and optional child item model (multifield)
+- Unit tests for models and servlets
+- Clientlibs (component and dialog)
+- Optional Sling Servlet for dynamic content
+
+See `skills/aem/cloud-service/skills/create-component/` for the skill and its reference files.
 
 ### AEM Dispatcher
 
@@ -123,15 +144,35 @@ skills/
     |       \-- ...
     |-- cloud-service/
     |   \-- skills/
-    |       \-- dispatcher/
+    |       |-- dispatcher/
+    |       |   |-- .claude-plugin/
+    |       |   |   \-- plugin.json
+    |       |   |-- config-authoring/
+    |       |   |   |-- SKILL.md
+    |       |   |   \-- references/
+    |       |   |       \-- ...
+    |       |   |-- technical-advisory/
+    |       |   \-- ...
+    |       \-- create-component/
     |           |-- .claude-plugin/
     |           |   \-- plugin.json
-    |           |-- config-authoring/
-    |           |   |-- SKILL.md
-    |           |   \-- references/
-    |           |       \-- ...
-    |           |-- technical-advisory/
-    |           \-- ...
+    |           |-- SKILL.md
+    |           |-- .aem-skills-config.yaml
+    |           |-- assets/
+    |           |   \-- field-type-mappings.md
+    |           \-- references/
+    |               |-- aem-conventions.md
+    |               |-- dialog-patterns.md
+    |               |-- htl-patterns.md
+    |               |-- model-patterns.md
+    |               |-- java-standards.md
+    |               |-- clientlib-patterns.md
+    |               |-- extending-core-components.md
+    |               |-- sling-servlet-standards.md
+    |               |-- core-components.md
+    |               |-- test-patterns.md
+    |               |-- no-hallucination-rules.md
+    |               \-- examples.md
     |-- 6.5-lts/
     |   \-- skills/
     |       \-- dispatcher/
