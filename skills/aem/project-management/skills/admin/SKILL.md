@@ -19,6 +19,38 @@ Generate comprehensive documentation for administrators taking over an AEM Edge 
 
 ---
 
+## Step 0: Navigate to Project Root and Verify Edge Delivery Services Project (CONDITIONAL)
+
+**Skip this step if `allGuides` flag is set** (orchestrator already validated and navigated).
+
+**CRITICAL: If NOT skipped, you MUST execute the `cd` command. Do NOT use absolute paths — actually change directory.**
+
+```bash
+ALL_GUIDES=$(cat .claude-plugin/project-config.json 2>/dev/null | grep -o '"allGuides"[[:space:]]*:[[:space:]]*true')
+if [ -z "$ALL_GUIDES" ]; then
+  # Navigate to git project root (works from any subdirectory)
+  cd "$(git rev-parse --show-toplevel)"
+  # Verify it's an Edge Delivery Services project
+  ls scripts/aem.js
+fi
+```
+
+**IMPORTANT:**
+- You MUST run the `cd` command above using the Bash tool
+- All subsequent steps operate from project root
+- Do NOT use absolute paths to verify — actually navigate
+- Guides will be created at `project-root/project-guides/`
+
+**If NOT skipped AND `scripts/aem.js` does NOT exist**, respond:
+
+> "This skill is designed for AEM Edge Delivery Services projects. The current directory does not appear to be an Edge Delivery Services project (`scripts/aem.js` not found).
+>
+> Please navigate to an Edge Delivery Services project and try again."
+
+**STOP if check fails. Otherwise proceed — you are now at project root.**
+
+---
+
 ## Execution Checklist
 
 ```markdown
@@ -64,6 +96,7 @@ project-guides/ADMIN-GUIDE.md
 **MANDATORY OUTPUT:** `project-guides/ADMIN-GUIDE.pdf`
 
 **STRICTLY FORBIDDEN:**
+- ❌ Do NOT read or analyze `fstab.yaml` — it does NOT exist in most projects and does NOT show all sites
 - ❌ Do NOT create `.plain.html` files
 - ❌ Do NOT use `convert_markdown_to_html` tool — this converts the FULL guide to HTML with raw frontmatter visible, which is NOT what we want
 - ❌ Do NOT tell user to "convert markdown to PDF manually"
@@ -256,13 +289,36 @@ The response is a JSON object with a `sites` array (each entry has a `name` fiel
 
 Multiple sites = **repoless** setup. Single site = **standard** setup.
 
-**Then fetch individual site config to get the code repository:**
+**Then fetch individual site config for code and content details:**
 
 ```bash
-curl -s -H "Accept: application/json" "https://admin.hlx.page/config/${ORG}/sites/{site-name}.json"
+AUTH_TOKEN=$(cat .claude-plugin/project-config.json | grep -o '"authToken"[[:space:]]*:[[:space:]]*"[^"]*"' | sed 's/"authToken"[[:space:]]*:[[:space:]]*"//' | sed 's/"$//')
+curl -s -H "x-auth-token: ${AUTH_TOKEN}" "https://admin.hlx.page/config/${ORG}/sites/{site-name}.json"
 ```
 
-The `code` object in the response contains `owner` and `repo` — this may point to a GitHub repo or a Cloud Manager program.
+**Example response:**
+```json
+{
+  "code": {
+    "owner": "github-owner",
+    "repo": "repo-name",
+    "source": { "type": "github", "url": "https://github.com/owner/repo" }
+  },
+  "content": {
+    "source": {
+      "url": "https://content.da.live/org-name/site-name/",
+      "type": "markup"
+    }
+  }
+}
+```
+
+**Extract from response:**
+- `code.owner` / `code.repo` — GitHub repository
+- `content.source.url` — Content mountpath (e.g., `https://content.da.live/org/site/`)
+- `content.source.type` — Content source type (markup, onedrive, google)
+
+**⚠️ Do NOT use `fstab.yaml`** — use Config Service API instead.
 
 ### 1.2 Build Context
 

@@ -30,6 +30,44 @@ Generate comprehensive handover documentation for Edge Delivery Services project
 
 ## Execution Flow
 
+### Step 0: Navigate to Project Root and Verify Edge Delivery Services Project (MANDATORY FIRST STEP)
+
+**CRITICAL: You MUST execute this `cd` command before anything else. Do NOT use absolute paths — actually change directory.**
+
+```bash
+# Navigate to git project root (works from any subdirectory)
+cd "$(git rev-parse --show-toplevel)"
+
+# Verify it's an Edge Delivery Services project
+ls scripts/aem.js
+```
+
+**IMPORTANT:**
+- You MUST run the `cd` command above using the Bash tool
+- All subsequent steps operate from project root
+- Do NOT use absolute paths to verify — actually navigate
+- Guides will be created at `project-root/project-guides/`
+
+**If `scripts/aem.js` does NOT exist**, respond:
+
+> "This skill is designed for AEM Edge Delivery Services projects. The current directory does not appear to be an Edge Delivery Services project (`scripts/aem.js` not found).
+>
+> Please navigate to an Edge Delivery Services project and try again."
+
+**STOP if check fails. Otherwise proceed — you are now at project root.**
+
+---
+
+### Step 0.5: Clean Up Stale Config
+
+Remove any existing config to ensure fresh org and authentication for this project:
+
+```bash
+rm -f .claude-plugin/project-config.json
+```
+
+---
+
 ### Step 1: Ask User for Documentation Type
 
 **MANDATORY:** Use the `AskUserQuestion` tool with EXACTLY these 4 options:
@@ -86,8 +124,13 @@ mkdir -p .claude-plugin
 grep -qxF '.claude-plugin/' .gitignore 2>/dev/null || echo '.claude-plugin/' >> .gitignore
 
 # Save org name to config file
+# If "All" was selected, include allGuides flag to skip step 0 in sub-skills
 echo '{"org": "{ORG_NAME}"}' > .claude-plugin/project-config.json
+# OR if "All (Recommended)" was selected:
+echo '{"org": "{ORG_NAME}", "allGuides": true}' > .claude-plugin/project-config.json
 ```
+
+**Note:** Include `"allGuides": true` ONLY when user selected "All (Recommended)". This signals sub-skills to skip step 0 validation (orchestrator already validated).
 
 Replace `{ORG_NAME}` with the actual organization name provided by the user.
 
@@ -119,23 +162,26 @@ ORG=$(cat .claude-plugin/project-config.json | grep -o '"org"[[:space:]]*:[[:spa
 SITE=$(curl -s "https://admin.hlx.page/config/${ORG}/sites.json" | grep -o '"name"[[:space:]]*:[[:space:]]*"[^"]*"' | head -1 | sed 's/"name"[[:space:]]*:[[:space:]]*"//' | sed 's/"$//')
 ```
 
-3. **Display clear instructions and open browser**:
-```bash
-echo ""
-echo "╔════════════════════════════════════════════════════════════════╗"
-echo "║                                                                ║"
-echo "║   BROWSER WINDOW OPENING FOR ADOBE ID LOGIN                    ║"
-echo "║                                                                ║"
-echo "║   1. Sign in with your Adobe ID credentials                   ║"
-echo "║   2. After successful login, CLOSE THE BROWSER WINDOW         ║"
-echo "║                                                                ║"
-echo "║   >>> CLOSE THE BROWSER TO CONTINUE <<<                       ║"
-echo "║                                                                ║"
-echo "╚════════════════════════════════════════════════════════════════╝"
-echo ""
+3. **Get user acknowledgment before opening browser**:
 
-mkdir -p .claude-plugin
-npx playwright open --save-storage=.claude-plugin/auth-storage.json "https://admin.hlx.page/login/${ORG}/${SITE}/main"
+Use `AskUserQuestion` to ensure user is ready:
+
+```json
+AskUserQuestion({
+  "questions": [{
+    "question": "A browser window will open for authentication. After signing in, CLOSE THE BROWSER WINDOW to continue. Ready?",
+    "header": "Authentication Required",
+    "options": [
+      {"label": "Open Browser", "description": "I understand - open the browser for login"}
+    ],
+    "multiSelect": false
+  }]
+})
+```
+
+**After user confirms**, run:
+```bash
+mkdir -p .claude-plugin && npx playwright open --save-storage=.claude-plugin/auth-storage.json "https://admin.hlx.page/login/${ORG}/${SITE}/main"
 ```
 
 #### 1.6.3 Extract and Save Auth Token
@@ -187,35 +233,32 @@ Based on user selection:
 You'll see progress updates as each guide moves through its phases."
 ```
 
-**Launch all three skills simultaneously using parallel Task tool calls (NO background mode):**
+**Launch all three skills simultaneously using parallel Agent tool calls (foreground mode):**
 
-In a SINGLE message, invoke three Task tools in parallel WITHOUT `run_in_background`. This allows streaming progress updates while still running concurrently:
+In a SINGLE message, invoke three Agent tools in parallel. Foreground agents have full tool permissions and run concurrently:
 
 ```javascript
-// All three in ONE message - they run concurrently WITH streaming progress
-Task({
-  subagent_type: "general-purpose",
+// All three in ONE message - runs in parallel with full permissions
+Agent({
   description: "Generate authoring guide",
   prompt: "Invoke skill project-management:authoring to generate the authoring guide PDF. Show progress as you complete each phase."
 })
 
-Task({
-  subagent_type: "general-purpose",
+Agent({
   description: "Generate developer guide",
   prompt: "Invoke skill project-management:development to generate the developer guide PDF. Show progress as you complete each phase."
 })
 
-Task({
-  subagent_type: "general-purpose",
+Agent({
   description: "Generate admin guide",
   prompt: "Invoke skill project-management:admin to generate the admin guide PDF. Show progress as you complete each phase."
 })
 ```
 
-**Progress updates stream automatically** as each task works through phases:
-- User sees which guide is at which phase
-- Completions appear as they happen
-- No polling required
+**Why foreground agents:**
+- Run all 3 in parallel (~3x faster than sequential)
+- Full tool permissions (Bash, Read, Write, Glob, Skill)
+- Progress updates stream as each agent works
 
 **When all three complete, report final summary:**
 
@@ -269,6 +312,7 @@ project-guides/ADMIN-GUIDE.md
 ## MANDATORY RULES
 
 **STRICTLY FORBIDDEN:**
+- ❌ Do NOT read or analyze `fstab.yaml` — it does NOT exist in most projects and does NOT show all sites
 - ❌ Do NOT create `.plain.html` files
 - ❌ Do NOT use `convert_markdown_to_html` tool
 - ❌ Do NOT tell user to "convert markdown to PDF manually"

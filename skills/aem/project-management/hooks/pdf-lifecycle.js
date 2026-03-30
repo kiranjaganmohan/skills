@@ -15,6 +15,32 @@ import fs from 'fs';
 import path from 'path';
 import os from 'os';
 
+/**
+ * Check if current directory is the root of an AEM Edge Delivery Services project.
+ * Returns: { isRoot: boolean, foundInParent: boolean, projectRoot: string|null }
+ */
+function checkEdgeDeliveryProject() {
+  const cwd = process.cwd();
+
+  // Check if at project root
+  if (fs.existsSync(path.join(cwd, 'scripts/aem.js'))) {
+    return { isRoot: true, foundInParent: false, projectRoot: cwd };
+  }
+
+  // Walk up to see if we're in a nested folder of an Edge Delivery project
+  let dir = path.dirname(cwd);
+  const root = path.parse(dir).root;
+
+  while (dir !== root) {
+    if (fs.existsSync(path.join(dir, 'scripts/aem.js'))) {
+      return { isRoot: false, foundInParent: true, projectRoot: dir };
+    }
+    dir = path.dirname(dir);
+  }
+
+  return { isRoot: false, foundInParent: false, projectRoot: null };
+}
+
 // Session-scoped file paths
 let sessionId = 'default';
 let TRACKING_FILE = path.join(os.tmpdir(), `project-mgmt-pdf-tracking-${sessionId}.txt`);
@@ -75,11 +101,11 @@ function isTrackableMarkdownFile(filePath) {
   const allowedFiles = ['AUTHOR-GUIDE.md', 'DEVELOPER-GUIDE.md', 'ADMIN-GUIDE.md'];
   if (!allowedFiles.includes(basename)) return false;
 
-  // Only match project-guides/ at project root (first or second segment)
-  const normalized = path.normalize(filePath);
-  const segments = normalized.split(path.sep);
-  const guidesIndex = segments.indexOf('project-guides');
-  return guidesIndex !== -1 && guidesIndex <= 1;
+  // Check if file is in project-guides/ relative to project root
+  const cwd = process.cwd();
+  const relativePath = path.relative(cwd, filePath);
+  return relativePath.startsWith('project-guides' + path.sep) ||
+         relativePath.startsWith('project-guides/');
 }
 
 /**
@@ -249,7 +275,16 @@ function handleSessionEnd() {
       }
     }
 
-    // Keep .html file (needed for UI download)
+    // Delete .html file (PDF is the only deliverable)
+    const htmlFile = mdFile.replace(/\.md$/, '.html');
+    if (fs.existsSync(htmlFile)) {
+      try {
+        fs.unlinkSync(htmlFile);
+        debugLog(`Deleted: ${htmlFile}`);
+      } catch (err) {
+        debugLog(`Error deleting ${htmlFile}: ${err.message}`);
+      }
+    }
   }
 
   clearTrackedFiles();
@@ -267,6 +302,18 @@ function handleSessionEnd() {
  * Main hook logic
  */
 async function main() {
+  const projectCheck = checkEdgeDeliveryProject();
+
+  // Silent no-op for non-Edge Delivery projects (good citizen in multi-plugin environments)
+  if (!projectCheck.isRoot && !projectCheck.foundInParent) {
+    process.exit(0);
+  }
+
+  // Nested folder - auto-navigate to project root
+  if (!projectCheck.isRoot && projectCheck.foundInParent) {
+    process.chdir(projectCheck.projectRoot);
+  }
+
   try {
     const hookInput = await readStdin();
     initSessionFiles(hookInput);
