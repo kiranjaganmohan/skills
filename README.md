@@ -92,15 +92,17 @@ gh upskill adobe/skills --path skills/aem/edge-delivery-services --list
 
 Project lifecycle management for AEM Edge Delivery Services including handover documentation, PDF generation, and authentication.
 
-> **Usage Note:** This plugin is designed to run at the root of an AEM Edge Delivery Services project in an isolated workspace. Clone your Edge Delivery Services repository and run the plugin from the project root to ensure the PDF lifecycle hooks correctly track only your project's documentation files.
+> **Requirement:** This plugin is exclusively for AEM Edge Delivery Services projects. It validates projects by checking for `scripts/aem.js`. For non-Edge Delivery projects, the plugin exits early — use standard documentation approaches instead.
 
 **Quick Start:**
 ```bash
-cd your-eds-project
-# Say: "create documentation or guides for this project"
+cd your-edge-delivery-project   # or any subdirectory within it
+# Say: "create handover documentation for this project"
 ```
 
-**Setup:** You will be prompted for your Config Service organization name (the `{org}` in `https://main--site--{org}.aem.page`). A browser window will then open for authentication - sign in and **close the browser window** to continue. The org name and auth token are saved locally for guide generation.
+**Setup:** You will be prompted for your Config Service organization name (the `{org}` in `https://main--site--{org}.aem.page`). A browser window will open for authentication — sign in and **close the browser window** to continue.
+
+**Permissions:** Admin access to the project organization is required. The plugin queries the Config Service API to gather project configuration, site settings, and access controls for comprehensive documentation.
 
 **Output:** Professional PDFs generated in `project-guides/` folder:
 - `project-guides/AUTHOR-GUIDE.pdf` - For content authors
@@ -109,7 +111,7 @@ cd your-eds-project
 
 | Skill | Description |
 |-------|-------------|
-| `handover` | Orchestrates project handover documentation generation |
+| `handover` | Orchestrates project documentation generation |
 | `authoring` | Generate comprehensive authoring guide for content authors |
 | `development` | Generate technical documentation for developers |
 | `admin` | Generate admin guide for site administrators |

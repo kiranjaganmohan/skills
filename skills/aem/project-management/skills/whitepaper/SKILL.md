@@ -129,34 +129,23 @@ TYPST_FONT_PATHS="$PLUGIN_ROOT/fonts" pandoc ADMIN-GUIDE.md -o ADMIN-GUIDE.pdf -
 
 Note: Do **not** pass `--toc` — the template generates its own table of contents page with proper styling.
 
-### 5. Clean Up (MANDATORY)
+### 5. Clean Up (MANDATORY - DO NOT SKIP)
 
-**After successful PDF generation, perform ALL cleanup steps:**
+**CRITICAL: You MUST execute cleanup immediately after PDF generation. Only PDF should remain.**
 
 ```bash
-# Remove copied template file
-rm -f <output-directory>/whitepaper.typ
-
-# Remove source markdown file (PDF is the deliverable)
-rm -f <input.md>
-
-# Remove any .plain.html file with same base name
-rm -f <input-without-extension>.plain.html
-
-# Remove any .html file with same base name
-rm -f <input-without-extension>.html
+# Remove ALL intermediate files in one command
+rm -f <output-directory>/whitepaper.typ <input.md> <input-without-extension>.plain.html <input-without-extension>.html
 ```
 
 **Example cleanup for `project-guides/AUTHOR-GUIDE.md`:**
 ```bash
-rm -f project-guides/whitepaper.typ
-rm -f project-guides/AUTHOR-GUIDE.md project-guides/AUTHOR-GUIDE.plain.html project-guides/AUTHOR-GUIDE.html
-# Keep: project-guides/AUTHOR-GUIDE.pdf (deliverable)
+rm -f project-guides/whitepaper.typ project-guides/AUTHOR-GUIDE.md project-guides/AUTHOR-GUIDE.plain.html project-guides/AUTHOR-GUIDE.html
 ```
 
-### 6. Report Result
+**After cleanup, only `project-guides/AUTHOR-GUIDE.pdf` should exist. No .md, .html, or .plain.html files.**
 
-Tell the user the PDF was created and its path. Confirm cleanup was performed.
+### 6. Report Result
 
 ```
 "PDF created: [output.pdf]"
