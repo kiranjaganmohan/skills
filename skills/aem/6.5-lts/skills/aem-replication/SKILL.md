@@ -5,6 +5,10 @@ description: |
   activating/deactivating content, using the Replication API programmatically, and troubleshooting
   distribution issues for Adobe Experience Manager 6.5 LTS.
 license: Apache-2.0
+compatibility: Requires AEM 6.5 LTS or Adobe Managed Services (AMS). NOT compatible with AEM as a Cloud Service (use Sling Distribution API instead).
+metadata:
+  version: "1.0"
+  aem_version: "6.5 LTS"
 ---
 
 # AEM 6.5 LTS Replication
@@ -100,3 +104,10 @@ All skills reference official Adobe AEM 6.5 LTS documentation:
 
 - **AEM Workflow**: Integrate replication with approval workflows
 - **Dispatcher**: Configure Dispatcher Flush agents for cache invalidation
+
+## Migration to AEM as a Cloud Service
+
+AEM as a Cloud Service uses the **Sling Distribution API** instead of replication agents. If planning migration:
+- Review [Cloud Service Distribution Documentation](https://experienceleague.adobe.com/docs/experience-manager-cloud-service/content/operations/distribution.html)
+- For code migration patterns, see `skills/aem/cloud-service/skills/best-practices/references/replication.md`
+- Avoid agent-specific coupling (filter by agent ID) to reduce migration complexity

@@ -468,7 +468,8 @@ replicator.replicate(session, ReplicationActionType.ACTIVATE, pagePath, opts);
 
 **Activate page:**
 ```bash
-curl -u admin:admin -X POST \
+# Note: Replace $AEM_USER:$AEM_PASSWORD with your service account credentials
+curl -u $AEM_USER:$AEM_PASSWORD -X POST \
   http://localhost:4502/bin/replicate.json \
   -F "cmd=Activate" \
   -F "path=/content/mysite/en/products"
@@ -476,7 +477,8 @@ curl -u admin:admin -X POST \
 
 **Deactivate page:**
 ```bash
-curl -u admin:admin -X POST \
+# Note: Replace $AEM_USER:$AEM_PASSWORD with your service account credentials
+curl -u $AEM_USER:$AEM_PASSWORD -X POST \
   http://localhost:4502/bin/replicate.json \
   -F "cmd=Deactivate" \
   -F "path=/content/mysite/en/products"
@@ -484,7 +486,8 @@ curl -u admin:admin -X POST \
 
 **Tree activation via CURL:**
 ```bash
-curl -u admin:admin -X POST \
+# Note: Replace $AEM_USER:$AEM_PASSWORD with your service account credentials
+curl -u $AEM_USER:$AEM_PASSWORD -X POST \
   http://localhost:4502/etc/replication/treeactivation.html \
   -F "path=/content/mysite/en" \
   -F "onlyModified=true"

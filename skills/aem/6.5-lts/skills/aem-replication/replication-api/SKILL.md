@@ -76,13 +76,13 @@ Provides status information about replicated content.
 
 ## Maven Dependencies
 
-Add AEM API dependency to your `pom.xml`:
+Add AEM API dependency to your `pom.xml` (use the latest 6.5.x version available):
 
 ```xml
 <dependency>
     <groupId>com.adobe.aem</groupId>
     <artifactId>uber-jar</artifactId>
-    <version>6.5.0</version>
+    <version>6.5.21</version> <!-- Use latest 6.5.x version -->
     <classifier>apis</classifier>
     <scope>provided</scope>
 </dependency>
@@ -94,7 +94,7 @@ Or for individual API:
 <dependency>
     <groupId>com.day.cq</groupId>
     <artifactId>cq-replication</artifactId>
-    <version>6.5.0</version>
+    <version>6.5.21</version> <!-- Use latest 6.5.x version -->
     <scope>provided</scope>
 </dependency>
 ```
@@ -136,6 +136,9 @@ private Replicator replicator;
 public void activatePage(ResourceResolver resolver, String pagePath) 
     throws ReplicationException {
     Session session = resolver.adaptTo(Session.class);
+    if (session == null) {
+        throw new IllegalStateException("Unable to adapt ResourceResolver to Session");
+    }
     replicator.replicate(session, ReplicationActionType.ACTIVATE, pagePath);
 }
 ```
@@ -164,6 +167,9 @@ throws ReplicationException
 public void activatePageSync(ResourceResolver resolver, String pagePath) 
     throws ReplicationException {
     Session session = resolver.adaptTo(Session.class);
+    if (session == null) {
+        throw new IllegalStateException("Unable to adapt ResourceResolver to Session");
+    }
     
     ReplicationOptions opts = new ReplicationOptions();
     opts.setSynchronous(true); // Wait for completion
@@ -197,6 +203,9 @@ throws ReplicationException
 public void activateMultiplePages(ResourceResolver resolver, String[] pagePaths) 
     throws ReplicationException {
     Session session = resolver.adaptTo(Session.class);
+    if (session == null) {
+        throw new IllegalStateException("Unable to adapt ResourceResolver to Session");
+    }
     
     ReplicationOptions opts = new ReplicationOptions();
     opts.setSynchronous(false); // Async for better performance
@@ -228,6 +237,9 @@ throws ReplicationException
 ```java
 public boolean canUserActivate(ResourceResolver resolver, String pagePath) {
     Session session = resolver.adaptTo(Session.class);
+    if (session == null) {
+        throw new IllegalStateException("Unable to adapt ResourceResolver to Session");
+    }
     try {
         replicator.checkPermission(session, ReplicationActionType.ACTIVATE, pagePath);
         return true; // User has permission
@@ -259,6 +271,9 @@ import java.util.Calendar;
 
 public ReplicationInfo getPageReplicationInfo(ResourceResolver resolver, String pagePath) {
     Session session = resolver.adaptTo(Session.class);
+    if (session == null) {
+        throw new IllegalStateException("Unable to adapt ResourceResolver to Session");
+    }
     ReplicationStatus status = replicator.getReplicationStatus(session, pagePath);
     
     if (status != null) {
@@ -299,6 +314,9 @@ import java.util.List;
 public List<String> getActivatedPages(ResourceResolver resolver, String rootPath) 
     throws ReplicationException {
     Session session = resolver.adaptTo(Session.class);
+    if (session == null) {
+        throw new IllegalStateException("Unable to adapt ResourceResolver to Session");
+    }
     Iterator<String> activatedPaths = replicator.getActivatedPaths(session, rootPath);
     
     List<String> result = new ArrayList<>();
@@ -432,6 +450,9 @@ String getLastReplicatedRevision();
 ```java
 public Map<String, Object> getReplicationMetadata(ResourceResolver resolver, String path) {
     Session session = resolver.adaptTo(Session.class);
+    if (session == null) {
+        throw new IllegalStateException("Unable to adapt ResourceResolver to Session");
+    }
     ReplicationStatus status = replicator.getReplicationStatus(session, path);
     
     Map<String, Object> metadata = new HashMap<>();
@@ -476,6 +497,9 @@ public class ContentPublisherImpl implements ContentPublisher {
     public boolean publishPage(ResourceResolver resolver, String pagePath) {
         try {
             Session session = resolver.adaptTo(Session.class);
+            if (session == null) {
+                throw new IllegalStateException("Unable to adapt ResourceResolver to Session");
+            }
             
             // Create options for synchronous replication
             ReplicationOptions opts = new ReplicationOptions();
@@ -498,6 +522,9 @@ public class ContentPublisherImpl implements ContentPublisher {
     public boolean unpublishPage(ResourceResolver resolver, String pagePath) {
         try {
             Session session = resolver.adaptTo(Session.class);
+            if (session == null) {
+                throw new IllegalStateException("Unable to adapt ResourceResolver to Session");
+            }
             
             ReplicationOptions opts = new ReplicationOptions();
             opts.setSynchronous(true);
@@ -559,8 +586,21 @@ public class PublishServlet extends SlingAllMethodsServlet {
             return;
         }
         
+        // Validate path to prevent path traversal
+        if (!path.startsWith("/content/")) {
+            response.setStatus(400);
+            response.getWriter().write("{\"error\": \"Invalid path\"}");
+            return;
+        }
+        
         try {
             Session session = request.getResourceResolver().adaptTo(Session.class);
+            if (session == null) {
+                response.setStatus(500);
+                response.getWriter().write("{\"error\": \"Unable to obtain session\"}");
+                return;
+            }
+            
             ReplicationActionType type = "activate".equals(action) 
                 ? ReplicationActionType.ACTIVATE 
                 : ReplicationActionType.DEACTIVATE;
@@ -652,6 +692,9 @@ public void bulkActivateToSpecificAgent(ResourceResolver resolver,
     throws ReplicationException {
     
     Session session = resolver.adaptTo(Session.class);
+    if (session == null) {
+        throw new IllegalStateException("Unable to adapt ResourceResolver to Session");
+    }
     
     // Configure options with agent filter
     ReplicationOptions opts = new ReplicationOptions();
@@ -949,6 +992,9 @@ public void replicateWithListener(ResourceResolver resolver, String path)
     throws ReplicationException {
     
     Session session = resolver.adaptTo(Session.class);
+    if (session == null) {
+        throw new IllegalStateException("Unable to adapt ResourceResolver to Session");
+    }
     
     ReplicationOptions opts = new ReplicationOptions();
     opts.setSynchronous(true);
@@ -1098,6 +1144,9 @@ public ReplicationResult safeReplicate(ResourceResolver resolver, String path) {
     try {
         // Check permissions first
         Session session = resolver.adaptTo(Session.class);
+        if (session == null) {
+            throw new IllegalStateException("Unable to adapt ResourceResolver to Session");
+        }
         replicator.checkPermission(session, ReplicationActionType.ACTIVATE, path);
         
         // Perform replication
@@ -1144,6 +1193,9 @@ public void replicateWithServiceUser(String path) throws ReplicationException {
     
     try (ResourceResolver resolver = resolverFactory.getServiceResourceResolver(authInfo)) {
         Session session = resolver.adaptTo(Session.class);
+        if (session == null) {
+            throw new IllegalStateException("Unable to adapt ResourceResolver to Session");
+        }
         replicator.replicate(session, ReplicationActionType.ACTIVATE, path);
     } catch (LoginException e) {
         LOG.error("Service user login failed", e);
@@ -1158,6 +1210,9 @@ Always verify permissions before replication:
 ```java
 public boolean activateIfAllowed(ResourceResolver resolver, String path) {
     Session session = resolver.adaptTo(Session.class);
+    if (session == null) {
+        throw new IllegalStateException("Unable to adapt ResourceResolver to Session");
+    }
     
     try {
         // Check permission first
@@ -1200,6 +1255,9 @@ public void safeActivate(ResourceResolver resolver, String path)
     
     // Safe to replicate
     Session session = resolver.adaptTo(Session.class);
+    if (session == null) {
+        throw new IllegalStateException("Unable to adapt ResourceResolver to Session");
+    }
     replicator.replicate(session, ReplicationActionType.ACTIVATE, path);
 }
 ```
@@ -1213,6 +1271,9 @@ public void bulkActivate(ResourceResolver resolver, List<String> paths)
     throws ReplicationException {
     
     Session session = resolver.adaptTo(Session.class);
+    if (session == null) {
+        throw new IllegalStateException("Unable to adapt ResourceResolver to Session");
+    }
     
     ReplicationOptions opts = new ReplicationOptions();
     opts.setSynchronous(false); // Non-blocking for better performance
