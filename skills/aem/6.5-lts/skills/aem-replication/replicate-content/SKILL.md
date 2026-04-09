@@ -464,34 +464,89 @@ opts.setFilter(new AgentFilter() {
 replicator.replicate(session, ReplicationActionType.ACTIVATE, pagePath, opts);
 ```
 
-### CURL API Examples:
+### CURL API Examples
 
-**Activate page:**
+**Activate page (with error handling):**
 ```bash
 # Note: Replace $AEM_USER:$AEM_PASSWORD with your service account credentials
+response=$(curl -s -w "\n%{http_code}" -u $AEM_USER:$AEM_PASSWORD -X POST \
+  http://localhost:4502/bin/replicate.json \
+  -F "cmd=Activate" \
+  -F "path=/content/mysite/en/products")
+
+http_code=$(echo "$response" | tail -n1)
+body=$(echo "$response" | sed '$d')
+
+if [ "$http_code" -eq 200 ]; then
+  echo "Activation successful"
+  echo "$body"
+else
+  echo "Activation failed with HTTP $http_code"
+  echo "$body"
+  exit 1
+fi
+```
+
+**Deactivate page (with error handling):**
+```bash
+# Note: Replace $AEM_USER:$AEM_PASSWORD with your service account credentials
+response=$(curl -s -w "\n%{http_code}" -u $AEM_USER:$AEM_PASSWORD -X POST \
+  http://localhost:4502/bin/replicate.json \
+  -F "cmd=Deactivate" \
+  -F "path=/content/mysite/en/products")
+
+http_code=$(echo "$response" | tail -n1)
+body=$(echo "$response" | sed '$d')
+
+if [ "$http_code" -eq 200 ]; then
+  echo "Deactivation successful"
+  echo "$body"
+else
+  echo "Deactivation failed with HTTP $http_code"
+  echo "$body"
+  exit 1
+fi
+```
+
+**Tree activation via CURL (with error handling):**
+```bash
+# Note: Replace $AEM_USER:$AEM_PASSWORD with your service account credentials
+response=$(curl -s -w "\n%{http_code}" -u $AEM_USER:$AEM_PASSWORD -X POST \
+  http://localhost:4502/etc/replication/treeactivation.html \
+  -F "path=/content/mysite/en" \
+  -F "onlyModified=true")
+
+http_code=$(echo "$response" | tail -n1)
+body=$(echo "$response" | sed '$d')
+
+if [ "$http_code" -eq 200 ]; then
+  echo "Tree activation initiated successfully"
+  echo "$body"
+else
+  echo "Tree activation failed with HTTP $http_code"
+  echo "$body"
+  exit 1
+fi
+```
+
+**Simple examples (without error handling):**
+
+For quick testing, you can use simpler commands:
+```bash
+# Quick activate (no error handling)
 curl -u $AEM_USER:$AEM_PASSWORD -X POST \
   http://localhost:4502/bin/replicate.json \
   -F "cmd=Activate" \
   -F "path=/content/mysite/en/products"
-```
 
-**Deactivate page:**
-```bash
-# Note: Replace $AEM_USER:$AEM_PASSWORD with your service account credentials
+# Quick deactivate (no error handling)
 curl -u $AEM_USER:$AEM_PASSWORD -X POST \
   http://localhost:4502/bin/replicate.json \
   -F "cmd=Deactivate" \
   -F "path=/content/mysite/en/products"
 ```
 
-**Tree activation via CURL:**
-```bash
-# Note: Replace $AEM_USER:$AEM_PASSWORD with your service account credentials
-curl -u $AEM_USER:$AEM_PASSWORD -X POST \
-  http://localhost:4502/etc/replication/treeactivation.html \
-  -F "path=/content/mysite/en" \
-  -F "onlyModified=true"
-```
+Note: Simple examples above don't check for errors - use error handling versions in production scripts.
 
 ## Asset Replication (DAM)
 

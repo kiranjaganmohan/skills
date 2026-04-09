@@ -1153,22 +1153,250 @@ public ReplicationResult safeReplicate(ResourceResolver resolver, String path) {
 }
 ```
 
+## Error Handling Patterns
+
+Choose the appropriate error handling pattern based on your use case.
+
+### Pattern 1: Throw Exceptions (Library Code)
+
+**When to use:**
+- Library/utility methods
+- Workflow process steps
+- OSGi services called by other components
+- When caller needs to handle errors differently
+
+**Characteristics:**
+- Propagates errors to caller
+- Caller decides error handling strategy
+- Most flexible for reuse
+
+**Example:**
+```java
+public void activatePage(ResourceResolver resolver, String pagePath) 
+    throws ReplicationException {
+    Session session = resolver.adaptTo(Session.class);
+    if (session == null) {
+        throw new IllegalStateException("Unable to adapt ResourceResolver to Session");
+    }
+    replicator.replicate(session, ReplicationActionType.ACTIVATE, pagePath);
+    // Throws ReplicationException on failure
+}
+```
+
+**Caller handles the exception:**
+```java
+try {
+    activatePage(resolver, path);
+    LOG.info("Page activated successfully: {}", path);
+} catch (ReplicationException e) {
+    LOG.error("Activation failed: {}", path, e);
+    // Caller-specific error handling (retry, alert, etc.)
+}
+```
+
+### Pattern 2: Return Boolean (Service Layer)
+
+**When to use:**
+- Service layer with internal error logging
+- Fire-and-forget operations
+- When caller only needs success/failure indicator
+- Background/scheduled jobs
+
+**Characteristics:**
+- Logs errors internally
+- Returns simple success/failure flag
+- Caller doesn't need exception details
+
+**Example:**
+```java
+public boolean activatePage(ResourceResolver resolver, String pagePath) {
+    try {
+        Session session = resolver.adaptTo(Session.class);
+        if (session == null) {
+            LOG.error("Unable to adapt ResourceResolver to Session");
+            return false;
+        }
+        
+        replicator.replicate(session, ReplicationActionType.ACTIVATE, pagePath);
+        LOG.info("Page activated: {}", pagePath);
+        return true;
+        
+    } catch (ReplicationException e) {
+        LOG.error("Replication failed for: {}", pagePath, e);
+        return false;
+    }
+}
+```
+
+**Caller usage:**
+```java
+if (activatePage(resolver, path)) {
+    // Success path
+    updateAuditLog(path, "activated");
+} else {
+    // Failure path
+    updateAuditLog(path, "activation_failed");
+}
+```
+
+### Pattern 3: HTTP Status Codes (Servlets and REST APIs)
+
+**When to use:**
+- Sling servlets
+- REST API endpoints
+- Web service integrations
+- HTTP-based interfaces
+
+**Characteristics:**
+- Communicates errors via HTTP status codes
+- Returns error details in response body
+- Standard web semantics
+
+**Example:**
+```java
+@Component(
+    service = Servlet.class,
+    property = {
+        "sling.servlet.methods=POST",
+        "sling.servlet.paths=/bin/myapp/replicate"
+    }
+)
+public class ReplicationServlet extends SlingAllMethodsServlet {
+    
+    @Reference
+    private Replicator replicator;
+    
+    @Override
+    protected void doPost(SlingHttpServletRequest request, 
+                         SlingHttpServletResponse response) throws IOException {
+        
+        String path = request.getParameter("path");
+        
+        // Validate parameters
+        if (path == null || path.trim().isEmpty()) {
+            response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+            response.getWriter().write("{\"error\": \"Missing required parameter: path\"}");
+            return;
+        }
+        
+        // Validate path
+        if (!path.startsWith("/content/")) {
+            response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+            response.getWriter().write("{\"error\": \"Invalid path: must start with /content/\"}");
+            return;
+        }
+        
+        try {
+            Session session = request.getResourceResolver().adaptTo(Session.class);
+            if (session == null) {
+                response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+                response.getWriter().write("{\"error\": \"Unable to obtain session\"}");
+                return;
+            }
+            
+            replicator.replicate(session, ReplicationActionType.ACTIVATE, path);
+            
+            response.setStatus(HttpServletResponse.SC_OK);
+            response.getWriter().write("{\"success\": true, \"path\": \"" + path + "\"}");
+            
+        } catch (ReplicationException e) {
+            LOG.error("Replication failed", e);
+            response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+            response.getWriter().write("{\"error\": \"" + e.getMessage() + "\"}");
+        }
+    }
+}
+```
+
+### Pattern Comparison
+
+| Pattern | Use Case | Error Details | Caller Control | Example Context |
+|---------|----------|---------------|----------------|-----------------|
+| **Throw Exception** | Library code | Full stack trace | High - caller handles | Utility methods, workflow steps |
+| **Return Boolean** | Service layer | Logged internally | Low - success/fail only | Background jobs, scheduled tasks |
+| **HTTP Status** | Web interfaces | JSON error response | Medium - status code + message | REST APIs, servlets |
+
+### Choosing the Right Pattern
+
+**Use Throw Exception when:**
+- Building reusable library code
+- Caller needs detailed error information
+- Different callers need different error handling
+- Workflow process steps (WorkflowProcess interface)
+
+**Use Return Boolean when:**
+- Errors are logged and monitored centrally
+- Caller only needs success/failure indicator
+- Fire-and-forget operations
+- Scheduled/background jobs
+
+**Use HTTP Status when:**
+- Building HTTP endpoints (servlets, REST)
+- Web service integrations
+- Following REST API conventions
+- Client needs machine-readable error codes
+
+### Anti-Patterns to Avoid
+
+**Don't mix patterns:**
+```java
+// BAD: Returning boolean but also throwing exception
+public boolean activatePage(String path) throws ReplicationException {
+    // Confusing - which error handling mechanism?
+}
+```
+
+**Don't swallow exceptions silently:**
+```java
+// BAD: Silent failure
+try {
+    replicator.replicate(session, type, path);
+} catch (ReplicationException e) {
+    // No logging, no error indication
+}
+return true; // Always returns true, even on failure
+```
+
+**Don't use generic exceptions:**
+```java
+// BAD: Generic exception loses context
+public void activate(String path) throws Exception {
+    // Caller can't distinguish ReplicationException from other errors
+}
+```
+
+**Do be specific:**
+```java
+// GOOD: Specific exception type
+public void activate(String path) throws ReplicationException {
+    // Caller knows exactly what failed
+}
+```
+
 ## Security Considerations
 
 ### 1. Use Service Users
 
 Never use admin sessions. Create dedicated service users:
 
-```xml
-<!-- Service user mapping in ui.apps/src/main/content/META-INF/sling/nodetypes.cnd -->
-<serviceUserMapping>
-    <entry>
-        bundle="com.mycompany.aem.core"
-        subServiceName="replication-service"
-        user="replication-service"
-    </entry>
-</serviceUserMapping>
+**Service User Mapping OSGi Configuration:**
+
+Create file: `ui.config/src/main/content/jcr_root/apps/myapp/osgiconfig/config.author/org.apache.sling.serviceusermapping.impl.ServiceUserMapperImpl.amended-replication.cfg.json`
+
+```json
+{
+  "user.mapping": [
+    "com.mycompany.aem.core:replication-service=replication-service"
+  ]
+}
 ```
+
+**Service User Permissions:**
+
+The service user `replication-service` requires:
+- Read permissions on `/content`, `/conf`
+- Replicate permissions on paths to be activated
+- Write permissions on `/var/replication/outbox` (for reverse replication)
 
 ```java
 import org.apache.sling.api.resource.ResourceResolverFactory;
@@ -1243,6 +1471,13 @@ public void safeActivate(ResourceResolver resolver, String path)
         throw new IllegalArgumentException("Resource not found: " + path);
     }
     
+    // Validate resource type is replicable
+    if (!isReplicableResource(resource)) {
+        throw new IllegalArgumentException(
+            "Resource is not replicable. Must be cq:Page or dam:Asset, found: " 
+            + resource.getResourceType());
+    }
+    
     // Safe to replicate
     Session session = resolver.adaptTo(Session.class);
     if (session == null) {
@@ -1250,7 +1485,168 @@ public void safeActivate(ResourceResolver resolver, String path)
     }
     replicator.replicate(session, ReplicationActionType.ACTIVATE, path);
 }
+
+/**
+ * Check if resource is a replicable type (page or asset).
+ */
+private boolean isReplicableResource(Resource resource) {
+    String resourceType = resource.getResourceType();
+    
+    // Check if it's a page
+    if (resource.isResourceType("cq:Page")) {
+        return true;
+    }
+    
+    // Check if it's a DAM asset
+    if (resource.isResourceType("dam:Asset")) {
+        return true;
+    }
+    
+    // Check if it's an experience fragment
+    if (resource.isResourceType("cq:PageContent") && 
+        resource.getPath().startsWith("/content/experience-fragments/")) {
+        return true;
+    }
+    
+    // System/config resources should not be replicated
+    return false;
+}
 ```
+
+## ResourceResolver Lifecycle Management
+
+### Caller Responsibility Pattern
+
+**Important:** When accepting `ResourceResolver` as a method parameter, the **caller** is responsible for closing it, not the method.
+
+```java
+/**
+ * Activates a page using the replication API.
+ * 
+ * @param resolver ResourceResolver (caller must close)
+ * @param pagePath Path to the page to activate
+ * @throws ReplicationException if replication fails
+ */
+public void activatePage(ResourceResolver resolver, String pagePath) 
+    throws ReplicationException {
+    Session session = resolver.adaptTo(Session.class);
+    if (session == null) {
+        throw new IllegalStateException("Unable to adapt ResourceResolver to Session");
+    }
+    replicator.replicate(session, ReplicationActionType.ACTIVATE, pagePath);
+    // Do NOT close resolver here - caller owns it
+}
+```
+
+**Caller usage:**
+```java
+ResourceResolver resolver = null;
+try {
+    resolver = resolverFactory.getServiceResourceResolver(authInfo);
+    activatePage(resolver, "/content/mysite/en/page");
+} catch (LoginException e) {
+    LOG.error("Service user login failed", e);
+} catch (ReplicationException e) {
+    LOG.error("Replication failed", e);
+} finally {
+    if (resolver != null && resolver.isLive()) {
+        resolver.close(); // Caller closes
+    }
+}
+```
+
+### Try-with-Resources Pattern (Recommended)
+
+When creating the `ResourceResolver` within your method, use try-with-resources for automatic cleanup:
+
+```java
+public void activateWithServiceUser(String pagePath) throws ReplicationException {
+    Map<String, Object> authInfo = new HashMap<>();
+    authInfo.put(ResourceResolverFactory.SUBSERVICE, "replication-service");
+    
+    try (ResourceResolver resolver = resolverFactory.getServiceResourceResolver(authInfo)) {
+        Session session = resolver.adaptTo(Session.class);
+        if (session == null) {
+            throw new IllegalStateException("Unable to adapt ResourceResolver to Session");
+        }
+        replicator.replicate(session, ReplicationActionType.ACTIVATE, pagePath);
+    } catch (LoginException e) {
+        LOG.error("Service user login failed", e);
+        throw new ReplicationException("Authentication failed", e);
+    }
+    // ResourceResolver auto-closed here
+}
+```
+
+### Resource Leak Prevention
+
+**Common mistake - Resource leak:**
+```java
+// BAD: Resolver never closed
+public void activatePage(String path) throws ReplicationException {
+    ResourceResolver resolver = resolverFactory.getServiceResourceResolver(authInfo);
+    Session session = resolver.adaptTo(Session.class);
+    replicator.replicate(session, ReplicationActionType.ACTIVATE, path);
+    // LEAK: resolver not closed
+}
+```
+
+**Correct pattern:**
+```java
+// GOOD: Try-with-resources ensures cleanup
+public void activatePage(String path) throws ReplicationException {
+    Map<String, Object> authInfo = new HashMap<>();
+    authInfo.put(ResourceResolverFactory.SUBSERVICE, "replication-service");
+    
+    try (ResourceResolver resolver = resolverFactory.getServiceResourceResolver(authInfo)) {
+        Session session = resolver.adaptTo(Session.class);
+        if (session == null) {
+            throw new IllegalStateException("Unable to adapt ResourceResolver to Session");
+        }
+        replicator.replicate(session, ReplicationActionType.ACTIVATE, path);
+    } catch (LoginException e) {
+        LOG.error("Service user login failed", e);
+        throw new ReplicationException("Authentication failed", e);
+    }
+}
+```
+
+### Manual Close Pattern (Legacy)
+
+If try-with-resources is not an option (pre-Java 7 code):
+
+```java
+public void activatePage(String path) throws ReplicationException {
+    ResourceResolver resolver = null;
+    try {
+        Map<String, Object> authInfo = new HashMap<>();
+        authInfo.put(ResourceResolverFactory.SUBSERVICE, "replication-service");
+        resolver = resolverFactory.getServiceResourceResolver(authInfo);
+        
+        Session session = resolver.adaptTo(Session.class);
+        if (session == null) {
+            throw new IllegalStateException("Unable to adapt ResourceResolver to Session");
+        }
+        replicator.replicate(session, ReplicationActionType.ACTIVATE, path);
+        
+    } catch (LoginException e) {
+        LOG.error("Service user login failed", e);
+        throw new ReplicationException("Authentication failed", e);
+    } finally {
+        if (resolver != null && resolver.isLive()) {
+            resolver.close();
+        }
+    }
+}
+```
+
+### Best Practices
+
+1. **Prefer try-with-resources** for all new code
+2. **Document ownership** with JavaDoc when accepting ResourceResolver as parameter
+3. **Always check isLive()** before closing in finally blocks
+4. **Never close** a ResourceResolver you didn't create
+5. **Use service users** - never create admin ResourceResolvers
 
 ## Performance Optimization
 

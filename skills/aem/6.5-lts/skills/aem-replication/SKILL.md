@@ -23,6 +23,7 @@ Route user requests to the appropriate specialist skill based on intent.
 | Activate or deactivate content using UI or workflows | Replicate Content | [replicate-content/SKILL.md](./replicate-content/SKILL.md) |
 | Use Replication API programmatically in custom code | Replication API | [replication-api/SKILL.md](./replication-api/SKILL.md) |
 | Diagnose blocked queues, connectivity issues, or distribution problems | Troubleshoot Replication | [troubleshoot-replication/SKILL.md](./troubleshoot-replication/SKILL.md) |
+| End-to-end workflows: new environment setup, incident response, performance optimization | Replication Orchestrator | [replication-orchestrator/SKILL.md](./replication-orchestrator/SKILL.md) |
 
 ## How to Use
 
@@ -76,6 +77,16 @@ Diagnose and fix common issues:
 
 **When to use:** Replication failures, performance issues, content not distributing
 
+### Replication Orchestrator
+
+Coordinates end-to-end replication workflows spanning multiple sub-skills:
+- **New Environment Setup**: Configure agents → Test replication → Troubleshoot
+- **Production Incident Response**: Diagnose → Fix → Verify
+- **Performance Optimization**: Monitor → Tune → Validate
+- **Migration Preparation**: Audit → Plan → Execute
+
+**When to use:** Multi-step scenarios requiring coordination across configure, replicate, API, and troubleshoot skills
+
 ## Common Workflows
 
 ### First-Time Setup
@@ -92,6 +103,15 @@ Diagnose and fix common issues:
 1. Use **Replication API** to understand available methods
 2. Use **Configure Replication Agent** to understand agent configuration
 3. Use **Troubleshoot Replication** for debugging custom replication code
+
+## Foundation References
+
+Shared reference materials used across all replication skills:
+
+- **[Agent Types](./references/replication-foundation/agent-types.md)**: Default, Dispatcher Flush, Reverse, and Static agents
+- **[Queue Mechanics](./references/replication-foundation/queue-mechanics.md)**: FIFO processing, retry logic, queue management
+- **[AEM 6.5 LTS Guardrails](./references/replication-foundation/65-lts-guardrails.md)**: Service users, timeouts, batch limits, best practices
+- **[API Quick Reference](./references/replication-foundation/api-reference.md)**: Replicator, ReplicationOptions, ReplicationStatus methods
 
 ## Official Documentation
 
