@@ -16,7 +16,7 @@ Repository of Adobe skills for AI coding agents.
 # Install all AEM as a Cloud Service skills (create-component + workflow + dispatcher) in one command
 /plugin install aem-cloud-service@adobe-skills
 
-# Install all AEM 6.5 LTS skills (workflow + dispatcher) in one command
+# Install all AEM 6.5 LTS skills (workflow + dispatcher + replication) in one command
 /plugin install aem-6-5-lts@adobe-skills
 ```
 
@@ -29,7 +29,7 @@ npx skills add https://github.com/adobe/skills/tree/main/skills/aem/edge-deliver
 # Install all AEM as a Cloud Service skills (create-component + workflow + dispatcher) in one command
 npx skills add https://github.com/adobe/skills/tree/beta/skills/aem/cloud-service --all
 
-# Install all AEM 6.5 LTS skills (workflow + dispatcher) in one command
+# Install all AEM 6.5 LTS skills (workflow + dispatcher + replication) in one command
 npx skills add https://github.com/adobe/skills/tree/beta/skills/aem/6.5-lts --all
 
 # Install for a single agent (pick ONE flavor only)
@@ -57,7 +57,7 @@ gh upskill adobe/skills --path skills/aem/edge-delivery-services --all
 # Install all AEM as a Cloud Service skills (create-component + workflow + dispatcher)
 gh upskill adobe/skills --path skills/aem/cloud-service --all
 
-# Install all AEM 6.5 LTS skills (workflow + dispatcher)
+# Install all AEM 6.5 LTS skills (workflow + dispatcher + replication)
 gh upskill adobe/skills --path skills/aem/6.5-lts --all
 
 # Install a specific skill
@@ -138,6 +138,28 @@ Current dispatcher flavors:
 
 Each flavor contains parallel capability groups (workflow orchestration, config authoring, technical advisory, incident response, performance tuning, and security hardening).
 Shared advisory logic is centralized under each flavor's `dispatcher/shared/references/` to reduce duplication and drift.
+
+### AEM Replication
+
+Replication skills for AEM 6.5 LTS cover the full content distribution lifecycle from agent configuration to troubleshooting.
+
+**Location:** `skills/aem/6.5-lts/skills/aem-replication`
+
+The aem-replication skill contains four specialist sub-skills:
+
+| Sub-Skill | Purpose |
+|---|---|
+| `configure-replication-agent` | Configure replication agents for publishing, dispatcher flush, and reverse replication |
+| `replicate-content` | Activate and deactivate content using UI, workflows, and package manager |
+| `replication-api` | Use the Replication API programmatically in custom code with complete Java examples |
+| `troubleshoot-replication` | Diagnose and fix blocked queues, connectivity failures, and distribution problems |
+
+**Key features:**
+- All skills based on official AEM 6.5 LTS documentation
+- Complete coverage of public Replication API (Replicator, ReplicationOptions, AgentManager, ReplicationQueue, etc.)
+- 49 Java code examples for OSGi services, servlets, and workflow steps
+- 12+ troubleshooting scenarios with step-by-step resolution
+- 3,575 lines of comprehensive documentation
 
 ### AEM as a Cloud Service — Best Practices & Migration
 
@@ -233,17 +255,28 @@ skills/
             |   |-- workflow-debugging/
             |   |-- workflow-triaging/
             |   \-- workflow-orchestrator/
-            |-- ensure-agents-md/
-            \-- dispatcher/
-                |-- SKILL.md          <-- discovered by npx skills (router)
-                |-- config-authoring/
-                |   |-- SKILL.md      <-- specialist (bundled inside dispatcher)
-                |   \-- references/
-                |-- technical-advisory/
-                |-- incident-response/
-                |-- performance-tuning/
-                |-- security-hardening/
-                \-- workflow-orchestrator/
+            |-- dispatcher/
+            |   |-- SKILL.md          <-- discovered by npx skills (router)
+            |   |-- config-authoring/
+            |   |   |-- SKILL.md      <-- specialist (bundled inside dispatcher)
+            |   |   \-- references/
+            |   |-- technical-advisory/
+            |   |-- incident-response/
+            |   |-- performance-tuning/
+            |   |-- security-hardening/
+            |   \-- workflow-orchestrator/
+            |-- aem-replication/
+            |   |-- README.md
+            |   |-- SKILL.md          <-- discovered by npx skills (router)
+            |   |-- configure-replication-agent/
+            |   |   \-- SKILL.md      <-- specialist (bundled inside aem-replication)
+            |   |-- replicate-content/
+            |   |   \-- SKILL.md      <-- specialist (bundled inside aem-replication)
+            |   |-- replication-api/
+            |   |   \-- SKILL.md      <-- specialist (bundled inside aem-replication)
+            |   \-- troubleshoot-replication/
+            |       \-- SKILL.md      <-- specialist (bundled inside aem-replication)
+            \-- ensure-agents-md/
 ```
 
 ## Contributing
