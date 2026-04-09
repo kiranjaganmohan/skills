@@ -76,28 +76,18 @@ Provides status information about replicated content.
 
 ## Maven Dependencies
 
-Add AEM API dependency to your `pom.xml` (use the latest 6.5.x version available):
+The Replication API is provided by the AEM uber-jar. Add to your `pom.xml`:
 
 ```xml
 <dependency>
     <groupId>com.adobe.aem</groupId>
     <artifactId>uber-jar</artifactId>
-    <version>6.5.21</version> <!-- Use latest 6.5.x version -->
     <classifier>apis</classifier>
     <scope>provided</scope>
 </dependency>
 ```
 
-Or for individual API:
-
-```xml
-<dependency>
-    <groupId>com.day.cq</groupId>
-    <artifactId>cq-replication</artifactId>
-    <version>6.5.21</version> <!-- Use latest 6.5.x version -->
-    <scope>provided</scope>
-</dependency>
-```
+The uber-jar version should match your AEM 6.5 LTS installation. The Replication API (`com.day.cq.replication.*`) is included in the uber-jar and available at runtime.
 
 ## Replicator Interface Methods
 
