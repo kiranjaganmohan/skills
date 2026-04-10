@@ -1,0 +1,44 @@
+{
+  "branches": ["main"],
+  "plugins": [
+    "@semantic-release/commit-analyzer",
+    "@semantic-release/release-notes-generator",
+    [
+      "@semantic-release/changelog",
+      {
+        "changelogFile": "CHANGELOG.md"
+      }
+    ],
+    [
+      "@semantic-release/exec",
+      {
+        "prepareCmd": "bash \"${GITHUB_WORKSPACE:-$(git rev-parse --show-toplevel)}/scripts/prepare-release.sh\" \"$PWD\" \"${nextRelease.version}\""
+      }
+    ],
+    [
+      "@semantic-release/github",
+      {
+        "assets": [
+          {
+            "path": "*.skill",
+            "label": "Skill package"
+          }
+        ]
+      }
+    ],
+    [
+      "@semantic-release/exec",
+      {
+        "publishCmd": "if [ -f tile.json ]; then tessl skill publish . --workspace adobe; fi"
+      }
+    ],
+    [
+      "@semantic-release/git",
+      {
+        "assets": ["CHANGELOG.md", "SKILL.md"],
+        "message": "chore(release): ${nextRelease.gitTag} [skip ci]"
+      }
+    ]
+  ]
+}
+
