@@ -1,0 +1,26 @@
+# CODEOWNERS for adobe/skills
+# https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
+#
+# Rules are evaluated top-to-bottom; the LAST matching pattern takes precedence.
+# Order: general → specific so that specific paths override the default.
+
+# Default owner (repo admin)
+*                                                     @trieloff
+
+# CI/CD and GitHub workflows
+/.github/                                             @trieloff @ssteimer
+
+# Claude plugin marketplace config
+/.claude-plugin/                                      @ssteimer @trieloff
+
+# AEM Edge Delivery Services (Sean Steimer is primary author of all skills)
+/skills/aem/edge-delivery-services/                   @ssteimer
+
+# AEM Project Management (Astha Bhargava is sole author)
+/skills/aem/project-management/                       @asthabhargava
+
+# AEM Cloud Service (in-flight, contributors: abhigarg, pkumargaddam, Himanich, akankshajain18, rombert)
+/skills/aem/cloud-service/                            @abhigarg @pkumargaddam @Himanich @akankshajain18 @rombert
+
+# AEM 6.5 LTS (in-flight, contributors: abhigarg, akankshajain18, rombert)
+/skills/aem/6.5-lts/                                  @abhigarg @akankshajain18 @rombert
