@@ -56,18 +56,34 @@ jobs:
           SUMMARY_ROWS=""
           ERRORS=""
 
-          SKILL_DIRS="${{ steps.detect.outputs.dirs }}"
-          if [ -z "$SKILL_DIRS" ]; then
+          SKILL_DIRS_INPUT="${{ steps.detect.outputs.dirs }}"
+          SKILL_LIST_FILE=$(mktemp)
+          trap 'rm -f "$SKILL_LIST_FILE"' EXIT
+
+          if [ -z "$SKILL_DIRS_INPUT" ]; then
             # Push to main or no filter: review all skills
-            SKILL_DIRS=$(find skills -name SKILL.md -exec dirname {} \;)
+            find skills -name SKILL.md -exec dirname {} \; > "$SKILL_LIST_FILE"
+          else
+            # PR mode: use detected skill dirs
+            printf '%s\n' $SKILL_DIRS_INPUT > "$SKILL_LIST_FILE"
           fi
 
-          for dir in $SKILL_DIRS; do
+          while IFS= read -r dir; do
+            [ -z "$dir" ] && continue
             SKILL_NAME=$(basename "$dir")
             echo "::group::Reviewing $SKILL_NAME"
-            OUTPUT=$(tessl skill review "$dir" 2>&1) || true
+
+            EXIT_CODE=0
+            OUTPUT=$(tessl skill review "$dir" 2>&1) || EXIT_CODE=$?
             echo "$OUTPUT"
             echo "::endgroup::"
+
+            if [ "$EXIT_CODE" -ne 0 ]; then
+              echo "::warning::tessl skill review failed for $SKILL_NAME (exit code $EXIT_CODE)"
+              FAIL=$((FAIL + 1))
+              SUMMARY_ROWS="$SUMMARY_ROWS| $SKILL_NAME | error | ❌ |\n"
+              continue
+            fi
 
             SCORE=$(echo "$OUTPUT" | grep -oE '[0-9]+%' | tail -1 | tr -d '%')
             if [ -z "$SCORE" ]; then
@@ -83,9 +99,15 @@ jobs:
               PASS=$((PASS + 1))
               SUMMARY_ROWS="$SUMMARY_ROWS| $SKILL_NAME | ${SCORE}% | ✅ |\n"
             fi
-          done
+          done < "$SKILL_LIST_FILE"
 
           TOTAL=$((PASS + FAIL))
+
+          # Fail if no skills were reviewed (push to main only)
+          if [ "$TOTAL" -eq 0 ] && [ "${{ github.event_name }}" != "pull_request" ]; then
+            echo "::error::No skills were reviewed — expected at least one"
+            exit 1
+          fi
 
           # Write GitHub Step Summary
           {
