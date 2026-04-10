@@ -1,0 +1,47 @@
+name: Conventional Commits
+
+on:
+  pull_request:
+    branches: [main]
+
+jobs:
+  conventional-commits:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Check for conventional commits
+        run: |
+          PATTERN='^(feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert)(\([a-zA-Z0-9_-]+\))?!?: .+'
+
+          COMMITS=$(git log origin/${{ github.base_ref }}..HEAD --pretty=format:"%h %s")
+          if [ -z "$COMMITS" ]; then
+            echo "No commits found in this PR."
+            exit 1
+          fi
+
+          echo "Checking commits for conventional commit format..."
+          echo ""
+
+          FOUND=0
+          while IFS= read -r line; do
+            HASH=$(echo "$line" | cut -d' ' -f1)
+            MSG=$(echo "$line" | cut -d' ' -f2-)
+            if echo "$MSG" | grep -qE "$PATTERN"; then
+              echo "✅ $HASH $MSG"
+              FOUND=1
+            else
+              echo "❌ $HASH $MSG"
+            fi
+          done <<< "$COMMITS"
+
+          echo ""
+          if [ "$FOUND" -eq 1 ]; then
+            echo "✅ At least one conventional commit found."
+          else
+            echo "❌ No conventional commits found. Please use the format: type(scope): description"
+            exit 1
+          fi
+
