@@ -66,14 +66,7 @@ Applies to **finding and editing the user's AEM project** (Java, bundles, config
 
 Do not transform **Java or HTL** until the pattern module is read (branch B). Branch A does not require `{best-practices}` pattern modules.
 
-**Branch C — Template Modernization** (no Java BPA pattern this session): If the user asks to **create editable templates**, **convert static templates to editable templates**, **generate `/conf` templates**, **create modernization rules**, **generate parsys-to-container rules**, **create structure/component/policy rewrite rules**, or mentions **AEM Modernize Tools**, follow this three-phase pipeline. **Skip** branch B for that work. No BPA pattern ID required.
-
-1. **Discovery → context.** Read [references/template-modernization-context.md](references/template-modernization-context.md) **first**. Execute all nine discovery steps, emit the structured context YAML to `.migration/template-context.yml`, and get the user's `confirmed` reply on both the context block and the **per-template plan table**. Do not skip to file generation.
-2. **Per-template execute.** For each plan row, run only the generators whose column is `true`:
-   - **Create editable?** → [references/editable-template-creation.md](references/editable-template-creation.md) — consume the context, emit the 4-file editable template.
-   - **Create structure rule? / Create component rule? / Create policy rule?** → [references/aem-modernization.md](references/aem-modernization.md) — consume the context, emit the corresponding rule + OSGi config.
-   Independent templates do not block each other. A missing editable template for template X is resolved in the same pass (plan fires "Create editable?" first for that row).
-3. **Validate.** Run every applicable assertion in [references/template-modernization-validation.md](references/template-modernization-validation.md). Do not commit files that fail validation.
+**Branch C — Template Modernization** (no BPA): static → editable templates and/or AEM Modernize Tools rules (structure/component/policy). Three phases: context → per-template execute → validate. Start at [references/template-modernization-context.md](references/template-modernization-context.md); generators are [editable-template-creation.md](references/editable-template-creation.md) and [aem-modernization.md](references/aem-modernization.md); post-gen checks in [template-modernization-validation.md](references/template-modernization-validation.md). **Skip** branch B.
 
 ## When to Use This Skill
 
@@ -82,7 +75,7 @@ Do not transform **Java or HTL** until the pattern module is read (branch B). Br
 - Drive work from **BPA** (CSV or cached collection) or **CAM via MCP**
 - Enforce **one pattern type per session**
 - **OSGi → Cloud Manager:** **Branch A** — scan scoped **`.cfg.json`**, apply **`$[secret:…]`** / **`$[env:…]`** per rules in **[references/osgi-cfg-json-cloud-manager.md](references/osgi-cfg-json-cloud-manager.md)**; gitignored handoff; **no** secret values in chat.
-- **Template Modernization:** **Branch C** — three-phase pipeline (context → per-template execute → validate). Discovery and the structured context block live in **[references/template-modernization-context.md](references/template-modernization-context.md)**; generation mechanics in **[editable-template-creation.md](references/editable-template-creation.md)** and **[aem-modernization.md](references/aem-modernization.md)**; post-generation assertions in **[template-modernization-validation.md](references/template-modernization-validation.md)**. No BPA id. Editable templates, structure rules, component rules, and policy rules are chosen **per template** via the plan table — there is no branch-level ordering between them.
+- **Template Modernization:** **Branch C** — see the Required-delegation entry above. Per-template plan table; no branch-level ordering between editable templates, structure rules, component rules, policy rules.
 
 ### OSGi configs and Cloud Manager (no BPA pattern id)
 
@@ -264,14 +257,7 @@ Does **not** use BPA CSV, CAM/MCP, or best-practices pattern modules for collect
 
 ### Template modernization flow (Branch C)
 
-Does **not** use BPA CSV or CAM/MCP.
-
-1. **Context.** Read [references/template-modernization-context.md](references/template-modernization-context.md). Execute discovery steps 1–9, emit `.migration/template-context.yml`, show the full block and the derived per-template plan table to the user, wait for `confirmed`. Every field flagged `needs-user-confirm` or `missing` must be resolved before proceeding — no silent defaults.
-2. **Per-template execute.** For each plan row, run the generators whose columns are `true`:
-   - [editable-template-creation.md](references/editable-template-creation.md) — when **Create editable?** is true.
-   - [aem-modernization.md](references/aem-modernization.md) — when any of **Create structure rule? / Create component rule? / Create policy rule?** is true.
-   A template row with "Create editable? + Create structure rule?" both true runs the editable-template generator first, then the structure-rule generator, in the same pass. Independent rows do not block each other.
-3. **Validate.** Run every applicable assertion in [references/template-modernization-validation.md](references/template-modernization-validation.md). Emit the validation report. Do **not** commit files that fail validation — fix first.
+No BPA / MCP. Three phases — context → per-template execute → validate — fully defined in [references/template-modernization-context.md](references/template-modernization-context.md). Do not commit on validation failure.
 
 ### htlLint flow
 

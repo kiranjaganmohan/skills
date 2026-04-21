@@ -1,56 +1,8 @@
 # Editable Template Creation — Static Template → `/conf` Editable Template
 
-**Agent:** The parent skill loads this file when the user asks to create editable templates from existing static templates. **This file only defines the generation mechanics.** Discovery, context, per-template planning, and validation live in dedicated files:
+Generates the 4-node editable template under `ui.content/.../jcr_root/conf/<appId>/settings/wcm/templates/<templateName>/` (root `.content.xml`, `structure/`, `initial/`, `policies/`) and appends the name to `templates/.content.xml`. Runs only for plan rows where **Create editable?** is true; every input is sourced from the confirmed `.migration/template-context.yml` — see [template-modernization-context.md](template-modernization-context.md). If any field is `needs-user-confirm` / `missing`, stop.
 
-- **Before this file:** [template-modernization-context.md](template-modernization-context.md) — discovery steps 1–9 and the structured context block. Every input this file consumes is sourced from the confirmed `.migration/template-context.yml` produced there.
-- **After this file:** [template-modernization-validation.md](template-modernization-validation.md) — post-generation assertions (required attributes, `editable` flag placement, cross-reference integrity).
-
-This file is **not** a prerequisite for `aem-modernization.md`. The plan table in the context file decides, per template, whether an editable template needs generating — both skills execute against the same plan.
-
-No BPA pattern ID required.
-
----
-
-## What This Pattern Does
-
-Generates the JCR node tree for each editable template under:
-```
-ui.content/.../jcr_root/conf/<appId>/settings/wcm/templates/<templateName>/
-```
-
-Each editable template is a 4-node set:
-
-| Node | File | Purpose |
-|------|------|---------|
-| Template root | `.content.xml` | Declares the `cq:Template`, title, status, allowed content paths |
-| `structure/` | `structure/.content.xml` | Page structure with responsive grid layout — what authors see in the template editor |
-| `initial/` | `initial/.content.xml` | Content copied into new pages created from this template |
-| `policies/` | `policies/.content.xml` | Policy mapping tree — maps container nodes to content policies |
-
-Also updates the parent `templates/.content.xml` index node to register each new template name.
-
----
-
-## Inputs — from the confirmed context block
-
-Before generating any file, verify `.migration/template-context.yml` exists and the user has replied `confirmed` on both the context block and the per-template plan table. If either is missing, **stop** and point the user at [template-modernization-context.md](template-modernization-context.md).
-
-For each template this pass will create (rows where `editable.exists == false` and the plan row's **Create editable?** column is true), the context block supplies every input the generator needs. Do not re-derive any of these — read them from the YAML.
-
-| Generator input | Source field in `.migration/template-context.yml` |
-|---|---|
-| `<appId>` | `apps[*].id` |
-| `<templateName>` | `apps[*].templates[*].name` |
-| `<humanTitle>` (→ `jcr:title`) | `apps[*].templates[*].static.jcrTitle` |
-| `<allowedPathsPattern>` | `apps[*].templates[*].static.allowedPaths` — must NOT be `needs-user-confirm` at this point |
-| `<templateType>` | `apps[*].conventions.templateType` — must NOT be `missing` |
-| `<pageStructureResourceType>` | `apps[*].templates[*].static.pageResourceType` — `pageResourceTypeExists` must be `true` |
-| `<contentContainerResourceType>` | `apps[*].conventions.contentContainerResourceType` |
-| Breakpoints (`phone`, `tablet`, …) | `apps[*].conventions.breakpoints` — use every entry, in order, as-is |
-| Named children for `structure/` | `templates[*].structureComponent.namedChildren[]` where `placement` ∈ `{ structure, structure+initial }` |
-| Named children for `initial/` | `templates[*].structureComponent.namedChildren[]` where `placement` ∈ `{ initial, structure+initial }` |
-
-**If any required field is marked `needs-user-confirm` or `missing`, stop — the context is not ready.** Return to the context-gathering step.
+Placeholders below: `<appId>`, `<templateName>`, `<humanTitle>`, `<allowedPathsPattern>`, `<pageStructureResourceType>`, `<contentContainerResourceType>` map to the obvious context fields; breakpoints come from `conventions.breakpoints` verbatim.
 
 ---
 
@@ -142,16 +94,14 @@ ui.content/src/main/content/jcr_root/conf/<appId>/settings/wcm/templates/<templa
 - `<cq:responsive>` breakpoints: use values discovered from existing templates; default to phone=768, tablet=1200 if none found
 - `cq:deviceGroups="[/etc/mobile/groups/responsive]"` — always include on structure
 
-**Child node placement is driven by the context block, not by judgement.**
+For each `namedChildren` entry with `placement ∈ {structure, structure+initial}`, emit a child of `<root>`:
 
-For each `namedChildren` entry whose `placement` is `structure` or `structure+initial`, emit a child node of `<root>`. The shape depends on its `classification`:
-
-| Classification | Shape under `<root>` |
+| classification | shape |
 |---|---|
 | `parsys` | `<name jcr:primaryType="nt:unstructured" sling:resourceType="<contentContainerResourceType>" editable="{Boolean}true" layout="responsiveGrid"/>` |
-| `locked` | `<name jcr:primaryType="nt:unstructured" sling:resourceType="<entry.resourceType>"/>` — no `editable` flag |
+| `locked` | `<name jcr:primaryType="nt:unstructured" sling:resourceType="<entry.resourceType>"/>` — no `editable` |
 
-**Never emit a node in `structure/` that is not listed with `placement: structure` or `structure+initial`.** The classifier in step 6 of the context file has already decided, per named child, whether it belongs in `structure` (appears on existing pages — must be locked there) or `initial` (only copied into new pages). Placing a locked component in `initial/` deletes it from pre-existing pages on the next template update; that classification is what the context block's `contentScan` step exists to prevent.
+Never emit anything in `structure/` that isn't classified with one of those placements — the context classifier (step 5) is authoritative. Placing a `locked` child in `initial/` would delete it from pre-existing pages on the next template update.
 
 ---
 
@@ -296,48 +246,4 @@ If missing, add it. Also verify the template-types path is filtered if it was ju
 <filter root="/conf/<appId>/settings/wcm/template-types"/>
 ```
 
----
-
-## Pipeline position
-
-This file is one step in the per-template pipeline defined by the context file's plan table. Both editable-template creation and rule generation read the same `.migration/template-context.yml` and execute the same plan; there is no branch-level ordering. For any given template row, the pipeline is:
-
-```
-context → per-template plan row → (generate editable template if plan says so)
-                                → (generate structure rule if plan says so)
-                                → (generate component rule if plan says so)
-                                → (generate policy rule if plan says so)
-                                → validation
-```
-
-A template row with all four plan columns true runs all four generators in one pass. Validation runs once at the end, covering every artifact generated this session.
-
----
-
-## Output summary (report to user)
-
-```
-Editable templates created:
-  <templateName>  →  conf/<appId>/settings/wcm/templates/<templateName>/
-    .content.xml         (cq:Template root, status=enabled)
-    structure/           (layout with responsive grid + locked children per context)
-    initial/             (per-context initial content; locked children excluded)
-    policies/            (policy mapping placeholder)
-
-templates/.content.xml   updated — added: <list of new template names>
-filter.xml               <added entry / already present>
-
-Skipped (already exist):
-  <list of templates where editable.exists was already true>
-
-Plan defers to validation:
-  Run the checks in template-modernization-validation.md before committing.
-```
-
----
-
-## Post-generation step
-
-Run every applicable assertion in [template-modernization-validation.md](template-modernization-validation.md) — sections 1 (editable template) and 6 (filter coverage) always apply. Do not commit any file that fails validation; fix and re-run.
-
-Rules previously listed as "Critical rules" in this file (self-reference, editable flag placement, breakpoint handling, `templates/.content.xml` preservation) are now expressed as machine-checkable assertions in the validation file. They are enforced post-generation, not by prose reminder.
+Post-generation: run sections 1 and 6 of [template-modernization-validation.md](template-modernization-validation.md). Do not commit on failure.

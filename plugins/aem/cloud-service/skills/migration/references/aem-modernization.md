@@ -1,51 +1,8 @@
-# AEM Modernization Rules — Template Conversion & Component Rewrites
+# AEM Modernization Rules — Structure / Component / Policy Rewrites
 
-**Agent:** The parent skill loads this file when the user asks to create modernization rules, convert static templates to editable templates, or generate parsys-to-container rewrite rules. **This file only defines the generation mechanics.** Discovery, context, per-template planning, and validation live in dedicated files:
+Generates rules for AEM Modernize Tools: structure rewrite (static → editable template pages), component rewrite (parsys → responsive grid), policy import (`/etc/designs/<name>` → `/conf/.../policies/`). Plus the one-per-project service configs and repoinit.
 
-- **Before this file:** [template-modernization-context.md](template-modernization-context.md) — discovery steps, structured context block, and the **per-template plan table**. This file never owns branch-level ordering or prerequisites; the plan decides, per template, which rules to generate.
-- **After this file:** [template-modernization-validation.md](template-modernization-validation.md) — post-generation assertions. `cq:copyChildren` presence, service-registration wiring, and cross-reference integrity are enforced there.
-
-No BPA pattern ID is required.
-
----
-
-## What This File Does
-
-Generates the three rule types consumed by the **AEM Modernize Tools** package (`com.adobe.aem.aem-modernize-tools`):
-
-| Rule Type | What it converts | Output location | Plan-table column |
-|-----------|-----------------|-----------------|--------------------|
-| **Structure Rewrite Rules** | Static template pages → editable template pages | `ui.apps/.../modernization/structure-rewrite-rules/` + `ui.config/.../osgiconfig/config.author/` | Create structure rule? |
-| **Component Rewrite Rules** | Legacy `parsys` nodes → responsive grid containers | `ui.apps/.../modernization/component-rewrite-rules/` | Create component rule? |
-| **Policy Import Rules** | `/etc/designs/<design>` → `/conf/.../policies/` | `ui.apps/.../modernization/policy-import-rules/` | Create policy rule? |
-
-Each rule type is independent. The plan table (one row per template) determines which columns fire for which template. A template row with all three columns true runs all three generators in one pass; a row with only "Create component rule?" true runs only that generator.
-
-**Missing editable templates are not a branch-level block.** If template X's `editable.exists` is false, the plan row for X also has "Create editable?" true — the editable-template generator runs first, in the same pass, before the structure rule for X. No separate "run Branch C first" session is required.
-
----
-
-## Inputs — from the confirmed context block
-
-Before generating any file, verify `.migration/template-context.yml` exists and the user has replied `confirmed` on both the context block and the plan table. If either is missing, **stop** and point the user at [template-modernization-context.md](template-modernization-context.md).
-
-For each plan row with at least one rule column true, the context block supplies every input. Do not re-derive any of these — read them from the YAML.
-
-| Generator input | Source field |
-|---|---|
-| `<appId>` | `apps[*].id` |
-| `<templateName>` | `apps[*].templates[*].name` |
-| `staticTemplate` / `static.template` (structure rule) | `templates[*].static.path` |
-| `editableTemplate` / `editable.template` (structure rule) | `templates[*].editable.path` — `editable.exists` must be `true` after this session's editable-generation pass |
-| `sling.resourceType` (structure rule OSGi config) | `templates[*].static.pageResourceType` — `pageResourceTypeExists` must be `true` |
-| `container.resourceType` (structure rule OSGi config) | always `wcm/foundation/components/responsivegrid` (WCM foundation grid — not the app container) |
-| Parsys node names (component rule patterns) | `templates[*].structureComponent.namedChildren[]` where `classification == parsys` |
-| Replacement `sling:resourceType` (component rule) | `apps[*].conventions.contentContainerResourceType` |
-| `design` attribute (policy rule) | `designs[*].path` |
-| `policyPath` attribute (policy rule) | `/conf/<apps[*].id>/settings/wcm/policies/<apps[*].id>` |
-| Whether to generate repoinit | exists flag — see validation section 5; skip if already present |
-
-**If any required field is `needs-user-confirm` or `missing`, stop.** Return to the context-gathering step.
+Inputs come from the confirmed `.migration/template-context.yml` — see [template-modernization-context.md](template-modernization-context.md). Each rule type runs independently for plan rows where its column is true. A row with **Create editable?** also true runs the editable generator first, same pass — no separate session.
 
 ---
 
@@ -379,12 +336,4 @@ Review required:
   <list any ambiguous items, missing editable templates, or unknown design paths>
 ```
 
----
-
-## Post-generation step
-
-Run every applicable assertion in [template-modernization-validation.md](template-modernization-validation.md). Sections 2 (structure rules), 3 (component rules — including the `cq:copyChildren` check), 4 (policy rules), 5 (repoinit), 6 (filter coverage), and 7 (cross-reference integrity) apply to this file. Do not commit any file that fails validation.
-
-The single highest-impact check is [section 3.1](template-modernization-validation.md) — `cq:copyChildren="{Boolean}true"` must be present on every component rewrite replacement. Omitting it destroys content inside parsys nodes at conversion time. Validation inverts the match (`rg -L`) so any missing flag lists the offending file immediately. A forgotten flag here is the class of bug validation exists to catch.
-
-Rules previously listed under "Critical rules" (do not recreate, one rule per template, ask before guessing, do not modify existing repoinit, no placeholder interpolation) are now expressed as machine-checkable assertions in the validation file and as plan-table logic in the context file — a template row where `existingRules.*.exists == true` has the corresponding column set false, so the generator simply doesn't fire for it.
+Post-generation: run sections 2–7 of [template-modernization-validation.md](template-modernization-validation.md). Section 3.1 (`cq:copyChildren` presence) is the highest-impact check — a missing flag silently destroys parsys children at conversion time.
