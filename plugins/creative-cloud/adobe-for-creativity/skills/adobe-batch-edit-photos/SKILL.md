@@ -74,6 +74,12 @@ Tool: asset_add_file
 Params: {}
 ```
 
+`asset_add_file` always returns `imageURIs: []` — this is expected and NOT an
+error. Wait for the user to select files; the real URIs arrive in the next
+message. Then call `read_widget_context` with `asset_add_file` to get the
+correct presigned S3 URLs. Use those for all subsequent tool calls.
+`dcx*.adobe.io` URIs are network-blocked; resolve them via `read_widget_context` first.
+
 ---
 
 ## Step 2: Understand the Desired Look
@@ -522,7 +528,7 @@ Read `results[N].outputUrl`. On `success: false` → see Error Handling.
 | Any tool returns "No approval received"             | Treat the same as a 403 entitlement error. For optional steps (presets, fine-tune adjustments, preview), skip and note in summary. Retrying does not help for this error — continue per the rules above. |
 | Any tool returns 401                                | Ask user to re-authenticate via Adobe OAuth and retry.                                                                                                                                                   |
 | `asset_add_file` shows no files                     | Remind user to select files in the picker.                                                                                                                                                               |
-| URI starts with `dcx-stage.adobe.io`                | Call `read_widget_context` for real presigned S3 URL.                                                                                                                                                    |
+| URI starts with `dcx*.adobe.io`                     | Call `read_widget_context` for real presigned S3 URL.                                                                                                                                                    |
 | `image_auto_straighten` fails                       | Use original URI; note "straighten skipped".                                                                                                                                                             |
 | `image_apply_auto_tone` fails                       | Use straightened URI; note in summary.                                                                                                                                                                   |
 | Any adjustment tool fails                           | Use previous step's output; note in summary.                                                                                                                                                             |
