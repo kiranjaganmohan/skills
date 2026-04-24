@@ -1,62 +1,8 @@
 # Editable Template Creation — Static Template → `/conf` Editable Template
 
-**Agent:** The parent skill loads this file when the user asks to create editable templates from existing static templates. This is a **prerequisite** for running `aem-modernization.md` — structure rewrite rules reference editable templates that must already exist under `/conf`.
+Generates the 4-node editable template under `ui.content/.../jcr_root/conf/<appId>/settings/wcm/templates/<templateName>/` (root `.content.xml`, `structure/`, `initial/`, `policies/`) and appends the name to `templates/.content.xml`. Runs only for plan rows where **Create editable?** is true; every input is sourced from the confirmed `.migration/template-context.yml` — see [template-modernization-context.md](template-modernization-context.md). If any field is `needs-user-confirm` / `missing`, stop.
 
-No BPA pattern ID required. The agent discovers inputs by reading the project's static templates and page structure components.
-
----
-
-## What This Pattern Does
-
-Generates the JCR node tree for each editable template under:
-```
-ui.content/.../jcr_root/conf/<appId>/settings/wcm/templates/<templateName>/
-```
-
-Each editable template is a 4-node set:
-
-| Node | File | Purpose |
-|------|------|---------|
-| Template root | `.content.xml` | Declares the `cq:Template`, title, status, allowed content paths |
-| `structure/` | `structure/.content.xml` | Page structure with responsive grid layout — what authors see in the template editor |
-| `initial/` | `initial/.content.xml` | Content copied into new pages created from this template |
-| `policies/` | `policies/.content.xml` | Policy mapping tree — maps container nodes to content policies |
-
-Also updates the parent `templates/.content.xml` index node to register each new template name.
-
----
-
-## Prerequisites — Read the Project First
-
-**STOP. Before generating any file, complete this discovery checklist.**
-
-### Discovery checklist
-
-1. **App ID:** Find `<appId>` from `/apps/<appId>/` paths in `ui.apps`. Confirm via `appId` in `ui.apps/pom.xml` or filevault plugin config.
-
-2. **Static templates:** Glob `**/jcr_root/apps/<appId>/templates/**/.content.xml`. For each, record:
-   - Template name (folder name)
-   - `jcr:title` from `jcr:content`
-   - `allowedPaths` from the root node
-   - `sling:resourceType` from `jcr:content` (this is the page structure component)
-
-3. **Page structure components:** For each static template's `sling:resourceType`, read the component at `ui.apps/.../apps/<appId>/components/structure/<templateName>/`. Note any parsys slots, fixed zones, or named child includes in the HTL files — these map to child nodes in `structure/.content.xml`.
-
-4. **Template type:** Check `**/jcr_root/conf/<appId>/settings/wcm/template-types/` — find the template type node (usually `page`). The path will be `/conf/<appId>/settings/wcm/template-types/page`. Confirm it exists.
-
-5. **Existing editable templates:** Glob `**/jcr_root/conf/<appId>/settings/wcm/templates/**/.content.xml`. Do not recreate templates that already exist — only generate missing ones.
-
-6. **App content container resourceType:** Find the project's responsive grid container — the component that extends `wcm/foundation/components/responsivegrid` or `core/wcm/components/container`. Typically `<appId>/components/content/container`. Verify by searching `ui.apps` for a component with `layout="responsiveGrid"`.
-
-7. **Breakpoints:** Check an existing editable template's `structure/.content.xml` for the `<cq:responsive>` breakpoints. If found, use the same values for all new templates (do not invent new breakpoints).
-
-8. **Targeting / fixed structural children:** Read each structure component's HTL files for `data-sly-resource` calls that reference non-parsys children (e.g. `targeting`, `LiveSyncConfig`, `header`). These named nodes must either be:
-   - Present in `initial/.content.xml` as a pre-placed child of `jcr:content` (for required runtime nodes like `targeting`)
-   - Or excluded from both `structure` and `initial` if the editable template's page component no longer renders them
-
-8. **Allowed paths pattern:** For each static template, check if `allowedPaths` is set. Use it directly in the editable template root. If absent, derive from the template's known content subtree (e.g. `/content/<appId>(/.*)?`). Ask the user to confirm if the pattern is not obvious.
-
-Report findings before generating files. Ask the user to confirm if any static template lacks a corresponding structure component, or if the template type path cannot be found.
+Placeholders below: `<appId>`, `<templateName>`, `<humanTitle>`, `<allowedPathsPattern>`, `<pageStructureResourceType>`, `<contentContainerResourceType>` map to the obvious context fields; breakpoints come from `conventions.breakpoints` verbatim.
 
 ---
 
@@ -148,30 +94,14 @@ ui.content/src/main/content/jcr_root/conf/<appId>/settings/wcm/templates/<templa
 - `<cq:responsive>` breakpoints: use values discovered from existing templates; default to phone=768, tablet=1200 if none found
 - `cq:deviceGroups="[/etc/mobile/groups/responsive]"` — always include on structure
 
-**If the static template has multiple parsys / named zones:**
-Read the structure component HTL for `sling:include` / `data-sly-resource` calls. Each named child parsys that should remain editable gets its own child node inside `<root>`:
-```xml
-<leftpar
-    jcr:primaryType="nt:unstructured"
-    sling:resourceType="<appId>/components/content/container"
-    editable="{Boolean}true"
-    layout="responsiveGrid"/>
-```
-Nodes that are fixed (header, footer, navigation) are **not** marked `editable="{Boolean}true"`.
+For each `namedChildren` entry with `placement ∈ {structure, structure+initial}`, emit a child of `<root>`:
 
-**If the template has a locked (always-present) component alongside the editable zone:**
-When the page structure component always renders a specific component (not a parsys) that must exist on every page — including pages created before the template was deployed — place it as a sibling to `<responsivegrid>` inside `<root>` **without** `editable`. Do **not** put it in `initial/.content.xml` — initial content is only copied to new pages, so existing pages would lose the component if it were moved there:
-```xml
-<root jcr:primaryType="nt:unstructured"
-    sling:resourceType="wcm/foundation/components/responsivegrid">
-    <fixedcomponent jcr:primaryType="nt:unstructured"
-        sling:resourceType="<appId>/components/content/<componentName>"/>
-    <responsivegrid jcr:primaryType="nt:unstructured"
-        sling:resourceType="<appId>/components/content/container"
-        editable="{Boolean}true"
-        layout="responsiveGrid"/>
-</root>
-```
+| classification | shape |
+|---|---|
+| `parsys` | `<name jcr:primaryType="nt:unstructured" sling:resourceType="<contentContainerResourceType>" editable="{Boolean}true" layout="responsiveGrid"/>` |
+| `locked` | `<name jcr:primaryType="nt:unstructured" sling:resourceType="<entry.resourceType>"/>` — no `editable` |
+
+Never emit anything in `structure/` that isn't classified with one of those placements — the context classifier (step 5) is authoritative. Placing a `locked` child in `initial/` would delete it from pre-existing pages on the next template update.
 
 ---
 
@@ -316,54 +246,4 @@ If missing, add it. Also verify the template-types path is filtered if it was ju
 <filter root="/conf/<appId>/settings/wcm/template-types"/>
 ```
 
----
-
-## Relationship to Modernization Rules
-
-Once editable templates are created and deployed, **run `aem-modernization.md`** to generate the structure rewrite rules that reference them. The structure rewrite rule's `editableTemplate` property must exactly match the path used in `cq:template` in the template's `.content.xml`.
-
-The complete migration sequence is:
-
-```
-1. [This skill]      Create editable templates → ui.content/.../conf/.../templates/
-2. [aem-modernization.md]  Create structure/component/policy rewrite rules → ui.apps + ui.config
-3. [Manual]          Deploy both packages (or via Cloud Manager pipeline)
-4. [Manual]          Run AEM Modernize Tools UI jobs against content paths
-```
-
----
-
-## Output summary (report to user)
-
-```
-Editable templates created:
-  <templateName>  →  conf/<appId>/settings/wcm/templates/<templateName>/
-    .content.xml         (cq:Template root, status=enabled)
-    structure/           (page layout with responsive grid)
-    initial/             (initial page content)
-    policies/            (policy mapping placeholder)
-
-templates/.content.xml   updated — added: <list of new template names>
-filter.xml               <added entry / already present>
-
-Skipped (already exist):
-  <list of templates that were found and not overwritten>
-
-Review required:
-  <list any templates where structure component was not found>
-  <list any templates where allowedPaths could not be determined>
-```
-
----
-
-## Critical rules
-
-- **Read before writing** — complete the discovery checklist before creating any file
-- **Do not overwrite** existing editable templates — check for existence first
-- **`sling:resourceType` on `jcr:content`** must match the actual structure component path — wrong value causes blank page rendering
-- **`editable="{Boolean}true"`** is required on the editable container in `structure` — without it, authors cannot edit the zone in the template editor
-- **Do not add `editable` to `initial`** — it belongs only on `structure`
-- **Do not invent breakpoint values** — copy from an existing template or ask the user
-- **`cq:template` is a self-reference** — it points to the template's own `/conf` path, not to the static template
-- **Do not create the template type** — `template-types/page` must already exist in the project; ask the user if it is missing
-- **Preserve `templates/.content.xml`** — read it first, add new entries only, never delete existing ones
+Post-generation: run sections 1 and 6 of [template-modernization-validation.md](template-modernization-validation.md). Do not commit on failure.
