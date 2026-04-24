@@ -6,6 +6,40 @@ Inputs come from the confirmed `.migration/template-context.yml` — see [templa
 
 ---
 
+## What This Pattern Does
+
+Generates the three types of rules consumed by the **AEM Modernize Tools** package (`com.adobe.aem.aem-modernize-tools`):
+
+| Rule Type | What it converts | Output location |
+|-----------|-----------------|-----------------|
+| **Structure Rewrite Rules** | Static template pages → editable template pages | `ui.apps/.../modernization/structure-rewrite-rules/` + `ui.config/.../osgiconfig/config.author/` |
+| **Component Rewrite Rules** | Legacy `parsys` nodes → responsive grid containers | `ui.apps/.../modernization/component-rewrite-rules/` |
+| **Policy Import Rules** | `/etc/designs/<design>` → `/conf/.../policies/` | `ui.apps/.../modernization/policy-import-rules/` |
+
+Each rule type is independent. The user may ask for one, two, or all three in a session.
+
+---
+
+## Prerequisites — Read the Project First
+
+**STOP. Before generating any file, ensure the confirmed context covers:**
+
+1. **App ID(s):** Resolved `/apps/<appId>/` target and matching `ui.apps` / `ui.config` / `ui.content` paths.
+2. **Static templates:** Template names, titles, and page structure resource types from the static templates in scope.
+3. **Editable templates:** Whether each target template already exists under `/conf`.
+4. **Existing structure rules:** Any existing files under `modernization/structure-rewrite-rules/`.
+5. **Parsys / named children:** Inputs needed for component rewrite rules and rename / ignore decisions.
+6. **App container resourceType:** The app's responsive grid container component.
+7. **Existing component rewrite rules:** Any existing files under `modernization/component-rewrite-rules/`.
+8. **Design paths:** `/etc/designs/` references and design names used by the project.
+9. **Policy conf paths:** Existing `/conf/.../settings/wcm/policies/` trees per app.
+10. **Existing service configs:** Any `com.adobe.aem.modernize.*.cfg.json` files already present.
+11. **Repoinit initializer:** Whether `RepositoryInitializer-aem-modernize.cfg.json` already exists.
+
+If any required field is ambiguous, unresolved, or still marked `needs-user-confirm` / `missing`, stop and resolve it before writing files.
+
+---
+
 ## Sub-path A: Structure Rewrite Rules
 
 Converts pages that use a static template to use an editable template. Requires two artifacts per template: an **XML rule node** (deployed via `ui.apps`) and an **OSGi factory config** (deployed via `ui.config`).
@@ -335,5 +369,20 @@ Filter entries        : added / already present
 Review required:
   <list any ambiguous items, missing editable templates, or unknown design paths>
 ```
+
+Post-generation: run sections 2–7 of [template-modernization-validation.md](template-modernization-validation.md). Section 3.1 (`cq:copyChildren` presence) is the highest-impact check — a missing flag silently destroys parsys children at conversion time.
+
+---
+
+## Critical rules
+
+- **Read before writing** — use the confirmed context; if any required field is still `needs-user-confirm` / `missing`, stop
+- **Do not recreate** existing rules — check for existing files before writing
+- **Do not modify repoinit** — if the initializer already exists, leave it alone
+- **Do not add placeholders** to repoinit scripts — interpolation is not supported there
+- **One rule file per template** for structure rules — do not combine multiple templates into one XML node
+- **`cq:copyChildren="{Boolean}true"` is mandatory** on component rewrite replacements — omitting it destroys existing content inside parsys
+- **Ask before guessing** on `sling.resourceType`, container resourceType, or design paths — wrong values cause silent failures at runtime
+- **Do not create editable templates here** — this generator only creates the rules that reference them; the templates themselves must already exist in `/conf`
 
 Post-generation: run sections 2–7 of [template-modernization-validation.md](template-modernization-validation.md). Section 3.1 (`cq:copyChildren` presence) is the highest-impact check — a missing flag silently destroys parsys children at conversion time.

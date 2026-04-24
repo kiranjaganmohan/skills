@@ -247,3 +247,59 @@ If missing, add it. Also verify the template-types path is filtered if it was ju
 ```
 
 Post-generation: run sections 1 and 6 of [template-modernization-validation.md](template-modernization-validation.md). Do not commit on failure.
+
+---
+
+## Relationship to Modernization Rules
+
+Once editable templates are created, run **`aem-modernization.md`** to generate the structure rewrite rules that reference them. The structure rewrite rule's `editableTemplate` property must exactly match the path used in `cq:template` in the template's `.content.xml`.
+
+The complete migration sequence is:
+
+```
+1. [context]         Confirm .migration/template-context.yml + plan table
+2. [this generator]  Create editable templates → ui.content/.../conf/.../templates/
+3. [aem-modernization.md]  Create structure/component/policy rewrite rules → ui.apps + ui.config
+4. [validation]      Run template-modernization-validation.md
+5. [manual]          Deploy both packages (or via Cloud Manager pipeline)
+6. [manual]          Run AEM Modernize Tools UI jobs against content paths
+```
+
+---
+
+## Output summary (report to user)
+
+```
+Editable templates created:
+  <templateName>  →  conf/<appId>/settings/wcm/templates/<templateName>/
+    .content.xml         (cq:Template root, status=enabled)
+    structure/           (page layout with responsive grid)
+    initial/             (initial page content)
+    policies/            (policy mapping placeholder)
+
+templates/.content.xml   updated — added: <list of new template names>
+filter.xml               <added entry / already present>
+
+Skipped (already exist):
+  <list of templates that were found and not overwritten>
+
+Review required:
+  <list any templates where structure component was not found>
+  <list any templates where allowedPaths could not be determined>
+```
+
+---
+
+## Critical rules
+
+- **Read before writing** — use the confirmed context; if any required field is still `needs-user-confirm` / `missing`, stop
+- **Do not overwrite** existing editable templates — check for existence first
+- **`sling:resourceType` on `jcr:content`** must match the actual structure component path — wrong value causes blank page rendering
+- **`editable="{Boolean}true"`** is required on the editable container in `structure` — without it, authors cannot edit the zone in the template editor
+- **Do not add `editable` to `initial`** — it belongs only on `structure`
+- **Do not invent breakpoint values** — copy from the confirmed context; if absent, ask the user
+- **`cq:template` is a self-reference** — it points to the template's own `/conf` path, not to the static template
+- **Do not create the template type** — `template-types/page` must already exist in the project; ask the user if it is missing
+- **Preserve `templates/.content.xml`** — read it first, add new entries only, never delete existing ones
+
+Post-generation: run sections 1 and 6 of [template-modernization-validation.md](template-modernization-validation.md). Do not commit on failure.
