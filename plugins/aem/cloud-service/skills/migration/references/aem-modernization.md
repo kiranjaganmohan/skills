@@ -306,6 +306,96 @@ Both files have identical content:
     jcr:title="<AppId> Policy Import Rules"/>
 ```
 
+### C4 — Policy node tree (generate when design file is readable)
+
+The XML mapping rule (C1) tells AEM Modernize Tools where to read and write at runtime. The actual `cq:Policy` nodes must also be committed to `ui.content` so that:
+- The template `policies/.content.xml` mapping has real `/conf` paths to reference (see [editable-template-creation.md](editable-template-creation.md) File 4)
+- Authors see allowed components and component configurations immediately on install, without needing to run the tool first
+
+**When to generate C4:** The design file listed in `designs[*].sourceFile` is readable. Skip if design has no sections with child nodes containing design properties.
+
+**How to extract policy content from the design file:**
+
+Read the design file. For each top-level section node under `jcr:content` (e.g. `<html>`, `<css>`, `<messages>`):
+
+| Design child | Attribute | → Policy property |
+|---|---|---|
+| `<par components="X,Y">` | `components` | `allowedComponents="[X,Y]"` on a container policy — strip `/apps/` prefix, keep relative resourceType |
+| `<targeting funcoptions="...">` | `funcoptions` | Same property on a targeting component policy |
+| `<targeting targetlocationoptions="...">` | `targetlocationoptions` | Same property on the targeting policy |
+| Other component child (e.g. `<segmentdefinition>`) | any design properties | Preserve all non-`jcr:` properties on a component-specific policy |
+
+**Policy tree to generate** under `ui.content/.../jcr_root/conf/<appId>/settings/wcm/policies/`:
+
+```
+<appId>/
+  .content.xml                         ← cq:PolicyContainer, title="<AppId> Policies"
+  components/
+    .content.xml                       ← cq:PolicyContainer, title="Components"
+    content/
+      .content.xml                     ← cq:PolicyContainer, title="Content Components"
+      container/
+        .content.xml                   ← cq:PolicyContainer, title="Container Policies"
+        default/
+          .content.xml                 ← cq:Policy, no allowedComponents (unrestricted)
+        <sectionName>/                 ← one per design section whose <par> has components
+          .content.xml                 ← cq:Policy with allowedComponents
+      <componentRelativePath>/         ← mirroring the component's sling:resourceType path
+        .content.xml                   ← cq:PolicyContainer
+        <sectionName>/                 ← one per design section that configures this component
+          .content.xml                 ← cq:Policy with extracted design properties
+```
+
+**cq:PolicyContainer format:**
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<jcr:root xmlns:jcr="http://www.jcp.org/jcr/1.0" xmlns:sling="http://sling.apache.org/jcr/sling/1.0"
+    jcr:primaryType="cq:PolicyContainer"
+    jcr:title="TITLE"
+    sling:resourceType="wcm/core/components/policies/mappings"/>
+```
+
+**cq:Policy with allowedComponents** (for container/parsys slots):
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<jcr:root xmlns:jcr="http://www.jcp.org/jcr/1.0" xmlns:sling="http://sling.apache.org/jcr/sling/1.0"
+    jcr:primaryType="cq:Policy"
+    jcr:title="TITLE"
+    sling:resourceType="wcm/core/components/policies/policy"
+    allowedComponents="[portal/components/content/member-portal/foo]"/>
+```
+
+- `allowedComponents` is a multi-value string array: `"[val1,val2]"` for multiple values, `"[val]"` for one
+- Values are relative resourceTypes (no `/apps/` prefix)
+- When the design `components` attribute lists `/apps/portal/components/content/member-portal/foo`, strip to `portal/components/content/member-portal/foo`
+
+**cq:Policy with component-specific properties** (for targeting, segmentdefinition, etc.):
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<jcr:root xmlns:jcr="http://www.jcp.org/jcr/1.0" xmlns:sling="http://sling.apache.org/jcr/sling/1.0"
+    jcr:primaryType="cq:Policy"
+    jcr:title="TITLE"
+    sling:resourceType="wcm/core/components/policies/policy"
+    funcoptions="..."
+    targetlocationoptions="..."/>
+```
+
+- Preserve the exact attribute values from the design node verbatim, including XML character escapes (`&#x9;`, `&#xd;`, `&#xa;` for tab/CR/LF)
+- Do not recode or normalize the escaped values
+
+**Naming convention for policy nodes:**
+- Container policies: named after the design section (`css`, `html`, `messages`, etc.)
+- Use `default` for sections with no `par.components` (unrestricted container)
+- Component policies: named after the design section that configures that component
+- If a component type (e.g. `targeting`) appears in multiple sections with different config, create one policy node per section under a `<componentPath>/` container
+
+**File path for the policy tree:**
+```
+ui.content/src/main/content/jcr_root/conf/<appId>/settings/wcm/policies/
+```
+
+Ensure `ui.content/filter.xml` covers `/conf/<appId>` — the existing `/conf/<appId>` filter entry already includes this subtree.
+
 ---
 
 ## Repoinit Initializer (required once per project)

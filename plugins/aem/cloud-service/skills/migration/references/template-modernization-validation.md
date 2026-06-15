@@ -41,6 +41,18 @@ All paths are rooted at the workspace. `<uiApps>` / `<uiContent>` / `<uiConfig>`
 
 4.2 **Both PIDs registered** — `PolicyImportRuleService.cfg.json` and `PolicyImportRuleServiceImpl.cfg.json` present with identical `search.paths`.
 
+4.3 **Policy node tree present (when C4 ran)** — if the design file was readable and C4 generated policy nodes, assert:
+- `<uiContent>/.../conf/<appId>/settings/wcm/policies/<appId>/.content.xml` exists with `jcr:primaryType="cq:PolicyContainer"`
+- Every `cq:Policy` node has `jcr:primaryType="cq:Policy"` and `sling:resourceType="wcm/core/components/policies/policy"`
+- `allowedComponents` values are relative resourceTypes (no `/apps/` prefix) — `rg '/apps/' <uiContent>/.../policies/` → **zero matches** inside `allowedComponents` attributes
+- Count of `cq:Policy` nodes ≥ count of design sections that had `<par components=…>` or component-specific child nodes
+
+4.4 **Template policies wired (when C4 ran)** — for every editable template generated this pass, its `policies/.content.xml` must have at least one `cq:policy` attribute, and every referenced path must exist as a file under `<uiContent>/.../policies/`:
+```
+rg -l 'cq:policy=' <uiContent>/.../templates/*/policies/.content.xml
+```
+→ must list every template that has an editable zone with a corresponding design section. Any template whose `policies/.content.xml` has no `cq:policy` attributes is in **Mode B** (no design available) — flag it in the review output for manual policy assignment post-deploy.
+
 ## 5. Repoinit
 
 Exactly one `RepositoryInitializer-aem-modernize.cfg.json` project-wide. `scripts` contains `/var/aem-modernize` + the four `job-data/*` subpaths. Must **not** contain `$[secret:]` / `$[env:]` — repoinit has no interpolation.

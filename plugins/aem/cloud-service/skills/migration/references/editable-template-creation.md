@@ -171,14 +171,50 @@ If the page structure component renders a named child via `data-sly-resource` th
 
 ## File 4: Policies mapping node — `policies/.content.xml`
 
-The policies node maps each container in the template to a content policy. For new templates this is a minimal placeholder — actual policy assignments are done after deployment via the template editor or can be copied from an existing template.
+The policies node maps each editable zone in the template structure to a content policy path under `/conf`.
+
+**Two modes — choose based on whether C4 ran:**
+
+**Mode A — design policy nodes already generated (C4 ran):** Wire `cq:policy` references directly. Each editable zone in the template `structure/` gets a child node here whose name matches the zone node name exactly, with `cq:policy` pointing at the corresponding policy under `/conf/<appId>/settings/wcm/policies/`.
+
+**Mode B — no design available:** Emit a minimal placeholder; policy assignments are done after deployment via the template editor.
 
 **Path:**
 ```
 ui.content/src/main/content/jcr_root/conf/<appId>/settings/wcm/templates/<templateName>/policies/.content.xml
 ```
 
-**Format:**
+**Format — Mode A (with cq:policy references):**
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<jcr:root xmlns:jcr="http://www.jcp.org/jcr/1.0"
+          xmlns:nt="http://www.jcp.org/jcr/nt/1.0"
+          xmlns:cq="http://www.day.com/jcr/cq/1.0"
+          xmlns:sling="http://sling.apache.org/jcr/sling/1.0"
+    jcr:primaryType="cq:Page">
+    <jcr:content
+        jcr:primaryType="nt:unstructured"
+        sling:resourceType="wcm/core/components/policies/mappings">
+        <root
+            jcr:primaryType="nt:unstructured"
+            sling:resourceType="wcm/core/components/policies/mapping">
+            <ZONE_NAME
+                jcr:primaryType="nt:unstructured"
+                sling:resourceType="wcm/core/components/policies/mapping"
+                cq:policy="/conf/<appId>/settings/wcm/policies/<appId>/components/content/POLICY_PATH"/>
+        </root>
+    </jcr:content>
+</jcr:root>
+```
+
+**Rules for Mode A:**
+- `ZONE_NAME` = the exact JCR node name of the editable zone in `structure/.content.xml` (e.g. `par`, `targeting`, `segmentdefinition`) — read structure/ first to confirm names
+- Only add a child node for zones that have a corresponding policy. Fixed (non-editable) zones in structure do not get a mapping entry
+- Container zones (`par`, `responsivegrid`) → `cq:policy` points at `container/<sectionName>` or `container/default`
+- Component-specific zones (e.g. `targeting`) → `cq:policy` points at `<componentRelativePath>/<sectionName>`
+- The design section name is the key: `sectionName` = the design section that defines this template's content (e.g. for the `css` template, the design section is `css`)
+
+**Format — Mode B (placeholder, no design):**
 ```xml
 <?xml version="1.0" encoding="UTF-8"?>
 <jcr:root xmlns:jcr="http://www.jcp.org/jcr/1.0"
